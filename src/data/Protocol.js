@@ -39,6 +39,7 @@ export class Protocol extends PsychObject
 
 	static Dialog = {
 		QUERY_PARTICIPANT_ID: Symbol.for("QUERY_PARTICIPANT_ID"),
+		CONFIRM_EXPERIMENT: Symbol.for("CONFIRM_EXPERIMENT"),
 		ADMIN_CREDENTIALS: Symbol.for("ADMIN_CREDENTIALS"),
 		ADMIN: Symbol.for("ADMIN")
 	}
@@ -79,11 +80,23 @@ export class Protocol extends PsychObject
 		this._protocol = {
 			status: undefined,
 			runMode: undefined,
-			experimentParameters: undefined
+			experimentParameters: {
+				showStartDialog: false,
+				showEndDialog: false,
+				completionUrl: undefined,
+				cancellationUrl: undefined
+			}
 		};
 		this._participant = {
-			participantId: ""
+			participantId: "",
+			participantName: undefined,
+			protocolId: undefined,
+			protocolName: undefined,
+			protocolModel: undefined,
+			coordinates: undefined,
+			firebaseRef: undefined
 		};
+		this._experimentNode = undefined;
 
 		this._addAttribute('status', Protocol.Status.INITIALISED);
 	}
@@ -177,8 +190,8 @@ export class Protocol extends PsychObject
 			try
 			{
 				if (name === Protocol.Dialog.QUERY_PARTICIPANT_ID
-					/*|| name === Protocol.Dialog.ADMIN_CREDENTIALS
-					|| name === Protocol.Dialog.ADMIN*/)
+					|| name === Protocol.Dialog.CONFIRM_EXPERIMENT
+					/*|| name === Protocol.Dialog.ADMIN*/)
 				{
 					// prepare a dialog box:
 					let markup = "<div class='dialog-container' id='experiment-dialog' aria-hidden='true' role='alertdialog'>";
@@ -202,6 +215,11 @@ export class Protocol extends PsychObject
 						// add text box for participant id:
 						markup += "<label for='form-input-participantId'>participant Id*:</label>";
 						markup += `<input type='text' name='participantId' id='form-input-participantId' value='${this._participant.participantId}' class='text'>`;
+					}
+					else if (name === Protocol.Dialog.CONFIRM_EXPERIMENT)
+					{
+						// show selected experiment:
+						markup += `<div>Next experiment: ${JSON.stringify(this._experimentNode)}</div>`;
 					}
 					else
 					{
@@ -409,9 +427,8 @@ export class Protocol extends PsychObject
 		await this._getParticipant(this._participant.participantId);
 
 		// move onto the next experiment in the protocol flow:
-		// TODO update the below:
-		// this._participantCoordinates = this._nextExperimentCoordinates([0]);
-		// this._experimentNode = this._getNode(this._protocol.flow, this._participantCoordinates);
+		this._participant.coordinates = this._nextExperimentCoordinates([0]);
+		this._experimentNode = this._getNode(this._participant.protocolModel, this._participant.coordinates);
 	}
 
 	/**
@@ -472,6 +489,13 @@ export class Protocol extends PsychObject
 					customToken: queryParticipantResponse.customToken
 				};
 
+				// deserialise the participant coordinates:
+				// TODO check for JSON parsing errors
+				this._participant.coordinates = JSON.parse(this._participant.coordinates);
+
+				// add coordinates to the nodes of the protocol flow:
+				this._assignCoordinates(this._participant.protocolModel, [0]);
+
 				this._status = Protocol.Status.READY;
 				resolve({...response });
 			}
@@ -481,6 +505,26 @@ export class Protocol extends PsychObject
 				reject({...response, error});
 			}
 		});
+	}
+
+	/**
+	 * Recursively assign coordinates to every node in the flow.
+	 *
+	 * @param node
+	 * @param coordinates
+	 * @protected
+	 */
+	_assignCoordinates(node, coordinates)
+	{
+		node.coordinates = coordinates;
+
+		if ("nodes" in node)
+		{
+			for (let c = 0; c < node.nodes.length; ++c)
+			{
+				this._assignCoordinates(node.nodes[c], [...coordinates, c]);
+			}
+		}
 	}
 
 	/**
@@ -494,7 +538,7 @@ export class Protocol extends PsychObject
 	_nextExperimentCoordinates(coordinates, returnFirstExperiment = false)
 	{
 		// get the node corresponding to the parent of the coordinates:
-		const node = this._getNode(this._protocol.flow, coordinates);
+		const node = this._getNode(this._participant.protocolModel, coordinates);
 
 		// if the node is an experiment:
 		if (node.type === "EXPERIMENT")
