@@ -136,7 +136,7 @@ export class ServerManager extends PsychObject
 	/**
 	 * Open a session for this experiment on the pavlovia server.
 	 *
-	 * @param {Object} params - the open session parameters
+	 * @param {Object} params - the session parameters
 	 *
 	 * @returns {Promise<ServerManager.OpenSessionPromise>} the response
 	 */
@@ -156,7 +156,7 @@ export class ServerManager extends PsychObject
 		{
 			try
 			{
-				const postResponse = await this._queryServerAPI(
+				const postResponse = await this.queryServer(
 					"POST",
 					`experiments/${this._psychoJS.config.gitlab.projectId}/sessions`,
 					params,
@@ -284,7 +284,7 @@ export class ServerManager extends PsychObject
 						data["surveyId"] = this._psychoJS._surveyId;
 					}
 
-					const deleteResponse = await this._queryServerAPI(
+					const deleteResponse = await this.queryServer(
 						"DELETE",
 						`experiments/${this._psychoJS.config.gitlab.projectId}/sessions/${this._psychoJS.config.session.token}`,
 						data,
@@ -580,6 +580,24 @@ export class ServerManager extends PsychObject
 
 						const resource = resources[r];
 
+						// deal with protocols:
+						if ("protocolId" in resource)
+						{
+							// protocol models can only be downloaded if the experiment is hosted on the pavlovia.org server:
+							if (this._psychoJS.config.environment !== ExperimentHandler.Environment.SERVER)
+							{
+								throw "protocol models cannot be downloaded when the experiment is running locally";
+							}
+
+							// we add a .pcl extension so _downloadResources knows what to download the associated
+							// protocol model from the server
+							resources[r] = {
+								name: `${resource["protocolId"]}.pcl`,
+								path: resource["protocolId"],
+								download: true
+							};
+						}
+
 						// deal with survey models:
 						if ("surveyId" in resource)
 						{
@@ -852,7 +870,7 @@ export class ServerManager extends PsychObject
 			{
 				try
 				{
-					const postResponse = await this._queryServerAPI(
+					const postResponse = await this.queryServer(
 						"POST",
 						`experiments/${this._psychoJS.config.gitlab.projectId}/sessions/${this._psychoJS.config.session.token}/results`,
 						{ key, value },
@@ -911,7 +929,7 @@ export class ServerManager extends PsychObject
 		{
 			try
 			{
-				const postResponse = await this._queryServerAPI(
+				const postResponse = await this.queryServer(
 					"POST",
 					`experiments/${this._psychoJS.config.gitlab.projectId}/sessions/${self._psychoJS.config.session.token}/logs`,
 					data,
@@ -1104,7 +1122,7 @@ export class ServerManager extends PsychObject
 					info.participant :
 					"PARTICIPANT";
 
-				const postResponse = await this._queryServerAPI(
+				const postResponse = await this.queryServer(
 					"POST",
 					`surveys/${surveyId}`,
 					{
@@ -1164,7 +1182,7 @@ export class ServerManager extends PsychObject
 		{
 			try
 			{
-				const getResponse = await this._queryServerAPI(
+				const getResponse = await this.queryServer(
 					"GET",
 					`surveys/${surveyId}/experiment`
 				);
@@ -1228,7 +1246,7 @@ export class ServerManager extends PsychObject
 		{
 			try
 			{
-				const getResponse = await this._queryServerAPI(
+				const getResponse = await this.queryServer(
 					"GET",
 					`experiments/${this._psychoJS.config.gitlab.projectId}/resources`,
 					data
@@ -1436,7 +1454,7 @@ export class ServerManager extends PsychObject
 
 			try
 			{
-				const getResponse = await this._queryServerAPI("GET", `surveys/${pathStatusData.path}/model`);
+				const getResponse = await this.queryServer("GET", `surveys/${pathStatusData.path}/model`);
 
 				const getModelResponse = await getResponse.json();
 
@@ -1517,8 +1535,9 @@ export class ServerManager extends PsychObject
 
 			howl.on("loaderror", (id, error) =>
 			{
-				// throw { ...response, error: 'unable to download resource: ' + name + ' (' + util.toString(error) + ')' };
-				throw Object.assign(response, { error: "unable to download resource: " + name + " (" + util.toString(error) + ")" });
+				console.error(error);
+				self.setStatus(ServerManager.Status.ERROR);
+				throw { ...response, error: `unable to download resource: ${name}: ${util.toString(error)}` };
 			});
 
 			howl.load();
@@ -1618,21 +1637,22 @@ export class ServerManager extends PsychObject
 	/**
 	 * Query the pavlovia server API.
 	 *
-	 * @protected
-	 * @param method	the HTTP method, i.e. GET, PUT, POST, or DELETE
-	 * @param path		the resource path, without the server address
-	 * @param data		the data to be sent
-	 * @param {string} [contentType="JSON"]	the content type, either JSON or FORM
+	 * @param method												- the HTTP method, i.e. GET, PUT, POST, or DELETE
+	 * @param url														- the resource url, without the server address
+	 * @param data													- the data to be sent
+	 * @param {string} [contentType="JSON"]	- the content type, either JSON or FORM
+	 * @returns {Promise<Response>}						the fetch response
 	 */
-	_queryServerAPI(method, path, data, contentType = "JSON")
+	queryServer(method, url, data, contentType = "JSON")
 	{
-		const fullPath = `${this._psychoJS.config.pavlovia.URL}/api/v2/${path}`;
+		// add the server api url (v2 currently):
+		const fullUrl = `${this._psychoJS.config.pavlovia.URL}/api/v2/${url}`;
 
 		if (method === "PUT" || method === "POST" || method === "DELETE")
 		{
 			if (contentType === "JSON")
 			{
-				return fetch(fullPath, {
+				return fetch(fullUrl, {
 					method,
 					mode: 'cors',
 					cache: 'no-cache',
@@ -1653,7 +1673,7 @@ export class ServerManager extends PsychObject
 					formData.append(attribute, data[attribute]);
 				}
 
-				return fetch(fullPath, {
+				return fetch(fullUrl, {
 					method,
 					mode: 'cors',
 					cache: 'no-cache',
@@ -1667,10 +1687,10 @@ export class ServerManager extends PsychObject
 
 		if (method === "GET")
 		{
-			let url = new URL(fullPath);
+			const url = new URL(fullUrl);
 			url.search = new URLSearchParams(data).toString();
 
-			return fetch(url, {
+			return fetch(url.href, {
 				method: "GET",
 				mode: "cors",
 				cache: "no-cache",

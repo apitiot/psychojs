@@ -260,7 +260,8 @@ export class PsychoJS
 	}
 
 	/**
-	 * Set the completion and cancellation URL to which the participant will be redirect at the end of the experiment.
+	 * Set the completion and cancellation URL to which the participant will be redirected
+	 * at the end of the experiment.
 	 *
 	 * @param {string} completionUrl  - the completion URL
 	 * @param {string} cancellationUrl - the cancellation URL
@@ -338,7 +339,7 @@ export class PsychoJS
 		try
 		{
 			// configure the experiment:
-			await this._configure(configURL, expName);
+			await this.configure(configURL, expName);
 
 			// get the participant IP:
 			if (this._collectIP)
@@ -664,12 +665,11 @@ export class PsychoJS
 	/**
 	 * Configure PsychoJS for the running experiment.
 	 *
-	 * @protected
 	 * @param {string} configURL - the URL of the configuration file
 	 * @param {string} name - the name of the experiment
 	 * @return {void}
 	 */
-	async _configure(configURL, name)
+	async configure(configURL, name)
 	{
 		const response = {
 			origin: "PsychoJS.configure",

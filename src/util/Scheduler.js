@@ -43,9 +43,17 @@ export class Scheduler
 		this._currentTask = undefined;
 		this._argsList = [];
 		this._currentArgs = undefined;
+		this._nameList = [];
+		this._currentName = undefined;
 
-		this._stopAtNextUpdate = false;
-		this._stopAtNextTask = false;
+		this._quitAtNextUpdate = false;
+		this._quitAtNextTask = false;
+
+		// callback triggered whenever a new task is run by the scheduler:
+		this._taskCallback = (action, taskName) =>
+		{
+			// [do nothing]
+		};
 
 		this._status = Scheduler.Status.STOPPED;
 	}
@@ -74,6 +82,21 @@ export class Scheduler
 	 */
 	add(task, ...args)
 	{
+		this._nameList.push("<no name>");
+		this._taskList.push(task);
+		this._argsList.push(args);
+	}
+
+	/**
+	 * Schedule a new named task.
+	 *
+	 * @param {string} taskName - the name of the task
+	 * @param {Scheduler~Task | Scheduler} task - the task to be scheduled
+	 * @param {...*} args - arguments for that task
+	 */
+	addNamedTask(taskName, task, ...args)
+	{
+		this._nameList.push(taskName);
 		this._taskList.push(task);
 		this._argsList.push(args);
 	}
@@ -118,41 +141,42 @@ export class Scheduler
 	 *
 	 * <p>Note: tasks are run after each animation frame.</p>
 	 *
-	 * @return {Promise<void>} a promise resolved when the scheduler stops, e.g. when the experiments finishes
+	 * @return {Promise<void>} a promise resolved when the scheduler stops, e.g. when the experiment finishes
 	 */
 	start()
 	{
+		// trigger the schedule callback:
+		this._taskCallback("START_SCHEDULER", undefined);
+
 		let shedulerResolve;
-		const self = this;
 		const update = async (timestamp) =>
 		{
-			// stop the animation if need be:
-			if (self._stopAtNextUpdate)
+			// quit if need be:
+			if (this._quitAtNextUpdate)
 			{
-				self._status = Scheduler.Status.STOPPED;
+				this._status = Scheduler.Status.STOPPED;
 				shedulerResolve();
 				return;
 			}
 
-			// self._psychoJS.window._writeLogOnFlip();
-
 			// run the next scheduled tasks until a scene render is requested:
-			const state = await self._runNextTasks();
+			const state = await this._runNextTasks();
+
+			// quit if need be:
 			if (state === Scheduler.Event.QUIT)
 			{
-				self._status = Scheduler.Status.STOPPED;
+				this._status = Scheduler.Status.STOPPED;
 				shedulerResolve();
 				return;
 			}
 
 			// store frame delta for `Window.getActualFrameRate()`
-			const lastTimestamp = self._lastTimestamp === undefined ? timestamp : self._lastTimestamp;
-
-			self._lastDelta = timestamp - lastTimestamp;
-			self._lastTimestamp = timestamp;
+			const lastTimestamp = this._lastTimestamp === undefined ? timestamp : this._lastTimestamp;
+			this._lastDelta = timestamp - lastTimestamp;
+			this._lastTimestamp = timestamp;
 
 			// render the scene in the window:
-			self._psychoJS.window.render();
+			this._psychoJS.window.render();
 
 			// request a new frame:
 			requestAnimationFrame(update);
@@ -170,12 +194,14 @@ export class Scheduler
 
 	/**
 	 * Stop this scheduler.
+	 *
+	 * @return {void}
 	 */
 	stop()
 	{
 		this._status = Scheduler.Status.STOPPED;
-		this._stopAtNextTask = true;
-		this._stopAtNextUpdate = true;
+		this._quitAtNextTask = true;
+		this._quitAtNextUpdate = true;
 	}
 
 	/**
@@ -193,31 +219,36 @@ export class Scheduler
 		while (state === Scheduler.Event.NEXT)
 		{
 			// check if we need to quit:
-			if (this._stopAtNextTask)
+			if (this._quitAtNextTask)
 			{
 				return Scheduler.Event.QUIT;
 			}
 
 			// if there is no current task, we look for the next one in the list or quit if there is none:
-			if (typeof this._currentTask == "undefined")
+			if (typeof this._currentTask === "undefined")
 			{
 				// a task is available in the taskList:
 				if (this._taskList.length > 0)
 				{
 					this._currentTask = this._taskList.shift();
 					this._currentArgs = this._argsList.shift();
+					this._currentName = this._nameList.shift();
+
+					this._taskCallback("START_TASK", this._currentName);
 				}
 				// the taskList is empty: we quit
 				else
 				{
 					this._currentTask = undefined;
 					this._currentArgs = undefined;
+					this._currentName = undefined;
 					return Scheduler.Event.QUIT;
 				}
 			}
 			else
 			{
 				// we are repeating a task
+				// [do nothing]
 			}
 
 			// if the current task is a function, we run it:
@@ -225,7 +256,7 @@ export class Scheduler
 			{
 				state = await this._currentTask(...this._currentArgs);
 			}
-			// otherwise, we assume that the current task is a scheduler and we run its tasks until a rendering
+			// otherwise, we assume that the current task is a scheduler, and we run its tasks until a rendering
 			// of the scene is required.
 			// note: "if (this._currentTask instanceof Scheduler)" does not work because of CORS...
 			else
@@ -247,6 +278,7 @@ export class Scheduler
 			{
 				this._currentTask = undefined;
 				this._currentArgs = undefined;
+				this._currentName = undefined;
 			}
 		}
 

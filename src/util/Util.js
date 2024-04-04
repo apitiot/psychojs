@@ -759,21 +759,19 @@ export function getUrlParameters()
 /**
  * Add info extracted from the URL to the given dictionary.
  *
- * <p>We exclude all URL parameters starting with a double underscore
- * since those are reserved for client/server communication</p>
+ * @note If excludeServerMsgs=true, we exclude all URL parameters starting with a double underscore
+ * since those are reserved for client/server communication
  *
- * @param {Object} info - the dictionary
+ * @param {Object} info 											- the dictionary
+ * @param {boolean} [excludeServerMsgs=true]	- whether to exclude server messages
  */
-export function addInfoFromUrl(info)
+export function addInfoFromUrl(info, excludeServerMsgs = true)
 {
 	const infoFromUrl = getUrlParameters();
 
-	// note: parameters starting with a double underscore are reserved for client/server communication,
-	// we do not add them to info
-	// for (const [key, value] of infoFromUrl)
 	infoFromUrl.forEach((value, key) =>
 	{
-		if (key.indexOf("__") !== 0)
+		if (key.indexOf("__") !== 0 || !excludeServerMsgs)
 		{
 			info[key] = value;
 		}
