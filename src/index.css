@@ -36,7 +36,6 @@ body {
 
 .dialog-container input.text,
 .dialog-container select.text {
-  margin-bottom: 1em;
   padding: 0.5em;
   width: 100%;
 
@@ -46,6 +45,11 @@ body {
   background: #ffffff;
   color: #333;
   font-size: 14px;
+}
+
+.dialog-container input.text:not(:last-child),
+.dialog-container select.text:not(:last-child) {
+  margin-bottom: 1em;
 }
 
 .dialog-container fieldset {
@@ -112,13 +116,25 @@ body {
 }
 
 .dialog-content .scrollable-container p {
-    margin: 0;
-    padding: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .dialog-content hr {
-    margin: 0.5em 2px 2px 2px;
+  margin: 0.5em 2px 2px 2px;
   width: calc(100% - 4px);
+}
+
+.dialog-content .dialog-panel {
+  margin-bottom: 1em;
+  padding: 0.5em;
+
+  background-color: #FFFFFF;
+  box-shadow: inset rgba(255, 255, 255, 1) 1px 1px 2px, inset rgba(0, 0, 0, 0.2) -1px -1px 2px;
+}
+
+.dialog-content .dialog-panel p {
+  margin-bottom: 0.5em;
 }
 
 .dialog-title {

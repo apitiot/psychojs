@@ -10,7 +10,11 @@
 import {PsychObject} from "../util/PsychObject.js";
 import {PsychoJS} from "../core/PsychoJS.js";
 import {ExperimentHandler} from "./ExperimentHandler";
+
 import A11yDialog from "a11y-dialog";
+import * as firebaseApp from "firebase/app";
+import * as firebaseRT from "firebase/database";
+import * as firebaseAuth from "firebase/auth";
 
 
 /**
@@ -58,30 +62,25 @@ export class Protocol extends PsychObject
 	/**
 	 * @memberOf module:data
 	 * @param {Object} options
-	 * @param {module:core.PsychoJS} options.psychoJS 						- the PsychoJS instance
-	 * @param {Object.<string, *>} [options.experimentInfo = {}] 	- additional information, e.g. pilotToken
-	 * @param {boolean} [options.autoLog= false] 									- whether to log
+	 * @param {module:core.PsychoJS} options.psychoJS 			- the PsychoJS instance
+	 * @param {Object.<string, *>} [options.expInfo = {}] 	- additional information, e.g. pilotToken
+	 * @param {boolean} [options.autoLog= false] 						- whether to log
 	 */
-	constructor({psychoJS, name, experimentInfo = {}, autoLog = false } = {})
+	constructor({psychoJS, expInfo = {}, autoLog = false } = {})
 	{
 		super(psychoJS);
 
-		this._addAttribute('name', name);
-		this._addAttribute('experimentInfo', experimentInfo);
+		this._addAttribute('expInfo', expInfo);
 		this._addAttribute('autoLog', autoLog);
 
-		// check that a protocol Id is available:
-		this._protocolId = experimentInfo['protocolId'];
-		if (typeof this._protocolId === "undefined")
-		{
-			throw "the URL is missing a protocolId parameter";
-		}
-
 		this._protocol = {
+			protocolId: undefined,
+			protocolName: undefined,
 			status: undefined,
 			runMode: undefined,
 			experimentParameters: {
 				showStartDialog: false,
+				participantMsg: undefined,
 				showEndDialog: false,
 				completionUrl: undefined,
 				cancellationUrl: undefined
@@ -97,6 +96,23 @@ export class Protocol extends PsychObject
 			firebaseRef: undefined
 		};
 		this._experimentNode = undefined;
+		this._firebase = {
+			firebaseConfig: undefined,
+			customToken: undefined,
+			firebaseApp: undefined,
+			database: undefined
+		};
+
+		// check that a protocol Id is available:
+		this._protocolId = expInfo['protocolId'];
+		if (typeof this._protocolId === "undefined")
+		{
+			throw "the URL is missing a protocolId parameter";
+		}
+		this._protocol.protocolId = this._protocolId;
+
+		// set participantId, if available:
+		this._participant.participantId = expInfo['participantId'];
 
 		this._addAttribute('status', Protocol.Status.INITIALISED);
 	}
@@ -200,17 +216,23 @@ export class Protocol extends PsychObject
 
 					// title and close button:
 					markup += "<div id='experiment-dialog-title' class='dialog-title'>";
-					markup += `  <p>${this.name}</p>`;
+					markup += `  <p>${this._protocol.protocolName}</p>`;
 					markup += "  <button id='dialogClose' class='dialog-close' data-a11y-dialog-hide aria-label='Cancel Protocol'>&times;</button>";
 					markup += "</div>";
 
 					// everything above the buttons is in a scrollable container:
 					markup += "<div class='scrollable-container'>";
 
+					let okButtonLabel = "OK";
+					let cancelButtonLabel = "Quit";
 					if (name === Protocol.Dialog.QUERY_PARTICIPANT_ID)
 					{
 						// TODO replace with GUI.js approach and use experimentInfo?
 						// TODO if there is already a participantId in the URL then do not ask for it in a textbox!
+
+						markup += "<div class='dialog-panel'>";
+						markup += `<div>${this._protocol.experimentParameters.participantMsg}</div>`;
+						markup += "</div>";
 
 						// add text box for participant id:
 						markup += "<label for='form-input-participantId'>participant Id*:</label>";
@@ -219,7 +241,12 @@ export class Protocol extends PsychObject
 					else if (name === Protocol.Dialog.CONFIRM_EXPERIMENT)
 					{
 						// show selected experiment:
+						// TODO make it look prettier!
+						markup += "<div class='dialog-panel'>";
 						markup += `<div>Next experiment: ${JSON.stringify(this._experimentNode)}</div>`;
+						markup += "</div>";
+
+						okButtonLabel = "Run";
 					}
 					else
 					{
@@ -238,10 +265,9 @@ export class Protocol extends PsychObject
 					markup += "</div>"; // scrollable-container
 
 					// buttons:
-					markup += "<hr>";
 					markup += "<div class='dialog-button-group'>";
-					markup += "  <button id='dialogCancel' class='dialog-button' aria-label='Cancel'>Cancel</button>";
-					markup += "  <button id='dialogOK' class='dialog-button' aria-label='OK'>OK</button>";
+					markup += `  <button id='dialogCancel' class='dialog-button' aria-label='Cancel'>${cancelButtonLabel}</button>`;
+					markup += `  <button id='dialogOK' class='dialog-button' aria-label='OK'>${okButtonLabel}</button>`;
 					/*if (name === Protocol.Dialog.START)
 					{
 						markup += "  <button id='dialogAdmin' class='dialog2-button admin' aria-label='Administration Access'>Admin</button>";
@@ -407,7 +433,7 @@ export class Protocol extends PsychObject
 	{
 		const response = {
 			origin: "Protocol.progress",
-			context: `when progressing the participant: ${this._participant.participantId} through protocol: ${this._protocolId}`
+			context: `when progressing participant: ${this._participant.participantId} through protocol: ${this._protocolId}`
 		};
 		this._psychoJS.logger.debug(`progressing participant: ${this._participant.participantId} for protocol: ${this._protocolId}`);
 
@@ -426,9 +452,289 @@ export class Protocol extends PsychObject
 		// get information about the participant from the pavlovia server:
 		await this._getParticipant(this._participant.participantId);
 
+		// sign-in to the Firebase Realtime database:
+		await this.firebaseAuthenticate();
+
 		// move onto the next experiment in the protocol flow:
 		this._participant.coordinates = this._nextExperimentCoordinates([0]);
 		this._experimentNode = this._getNode(this._participant.protocolModel, this._participant.coordinates);
+	}
+
+	/**
+	 * Run the designated/selection experiment.
+	 */
+	async run()
+	{
+		const response = {
+			origin: "Protocol.run",
+			context: `when running experiment: ${this._experimentNode.name} for participant: ${this._participant.participantId} through protocol: ${this._protocolId}`
+		};
+		this._psychoJS.logger.debug(`running experiment: ${this._experimentNode.name} for participant: ${this._participant.participantId} for protocol: ${this._protocolId}`);
+
+		// the session must be ready:
+		if (this._status !== Protocol.Status.READY)
+		{
+			throw {...response, error: "the session is not ready"};
+		}
+
+		try
+		{
+			// update the participant's entry in the Firebase Realtime database:
+			await this._firebaseSet(
+				`${this._participant.firebaseRef}/coordinates`,
+				JSON.stringify(this._experimentNode.coordinates)
+			);
+			await this._firebaseSet(
+				`${this._participant.firebaseRef}/experiment`,
+				JSON.stringify(this._experimentNode.path)
+			);
+		}
+		catch (error)
+		{
+			console.error(error);
+			throw {...response, error};
+		}
+
+		// run the experiment:
+		let fullUrl = `${this._psychoJS.config.pavlovia.URL}/run/${this._experimentNode.path}?`;
+		fullUrl += `protocolId=${this._protocol.protocolId}&participantId=${this._participant.participantId}`;
+		window.open(fullUrl, "_blank");
+	}
+
+	/**
+	 * Connect a participant to a protocol.
+	 *
+	 */
+	async connectParticipant()
+	{
+		const response = {
+			origin: "Protocol.connectParticipant",
+			context: `when connecting participant: ${this._participant.participantId} to protocol: ${this._protocolId}`
+		};
+		this._psychoJS.logger.debug(`connecting participant: ${this._participant.participantId} to protocol: ${this._protocolId}`);
+
+		// connecting a participant requires access to the server:
+		if (this._psychoJS.config.environment !== ExperimentHandler.Environment.SERVER)
+		{
+			throw {...response, error: "the experiment has to be run on the server: protocols are not available locally"};
+		}
+
+		// it also requires a participantId and a protocolId:
+		if (typeof this._protocolId === "undefined")
+		{
+			throw {...response, error: "missing protocolId"};
+		}
+		if (typeof this._participant.participantId === "undefined")
+		{
+			throw {...response, error: "missing participantId"};
+		}
+
+		// TODO check status of protocol?
+
+		try
+		{
+			// prepare the request:
+			const url = `protocols/${this._protocolId}/connect`
+			const data = {
+				participantId: this._participant.participantId
+			};
+
+			// connect the participant:
+			const putResponse = await this._psychoJS.serverManager.queryServer(
+				"PUT",
+				url,
+				data,
+				"JSON"
+			);
+
+			const connectParticipantResponse = await putResponse.json();
+
+			if (putResponse.status !== 200)
+			{
+				throw ('error' in connectParticipantResponse) ? connectParticipantResponse.error : connectParticipantResponse;
+			}
+
+			// update the firebase information:
+			this._firebase = {
+				firebaseConfig: connectParticipantResponse.firebaseConfig,
+				customToken: connectParticipantResponse.customToken
+			};
+			this._participant.firebaseRef = connectParticipantResponse.firebaseRef;
+
+			// sign-in to the Firebase Realtime database:
+			await this.firebaseAuthenticate();
+
+			// setup the PsychoJS onComplete & onCancel callbacks
+			// TODO
+
+			// this._status = Protocol.Status.READY;
+		}
+		catch (error)
+		{
+			console.error(error);
+		}
+	}
+
+	/**
+	 * Setup a callback triggered whenever an action is created.
+	 *
+	 * @param {Protocol.ActionCallback} actionCallback
+	 */
+	onAction(actionCallback)
+	{
+		const response = {
+			origin: "Protocol.onAction",
+			context: "when setting up an action callback"
+		};
+		this._psychoJS.logger.debug("when setting up an action callback");
+
+		// TODO test that the participant exists and is connected
+
+		try
+		{
+			const fullPath = `${this._participant.firebaseRef}/action`;
+			const self = this;
+			let onSetup = true;
+			firebaseRT.onValue(
+				firebaseRT.ref(self._firebase.database, fullPath),
+				(snapshot) =>
+				{
+					// since the callback is triggered on setup, which we do not want,
+					// we do not do anything on setup indeed:
+					if (onSetup)
+					{
+						onSetup = false;
+						return;
+					}
+
+					const action = snapshot.val();
+					actionCallback(action.cmd, action.args);
+				}
+			);
+		}
+		catch (error)
+		{
+			throw {...response, error};
+		}
+	}
+
+	/**
+	 * Authenticate a participant with a Firebase Realtime database, using a custom token.
+	 */
+	firebaseAuthenticate()
+	{
+		const response = {
+			origin: "Protocol.firebaseAuthenticate",
+			context: `when authenticating with a Firebase Realtime database with config: ${JSON.stringify(this._firebase.firebaseConfig)} and custom token: ${this._firebase.customToken}`
+		};
+		this._psychoJS.logger.debug(`authenticating with a Firebase Realtime database with config: ${JSON.stringify(this._firebase.firebaseConfig)} and custom token: ${this._firebase.customToken}`);
+
+		const self = this;
+		return new Promise(async (resolve, reject) =>
+		{
+			self._firebase.firebaseApp = firebaseApp.initializeApp(self._firebase.firebaseConfig);
+			self._firebase.database = firebaseRT.getDatabase(self._firebase.firebaseApp);
+
+			const auth = firebaseAuth.getAuth();
+			firebaseAuth.signInWithCustomToken(auth, self._firebase.customToken)
+				.then((userCredential) =>
+				{
+					console.log(userCredential);
+					resolve({...response});
+				})
+				.catch((error) =>
+				{
+					console.error(error);
+					reject({...response, error});
+				});
+		});
+	}
+
+	/**
+	 * Log a message.
+	 *
+	 * @param msg	- the message to be logged
+	 */
+	async logMessage(msg)
+	{
+		const response = {
+			origin: "Protocol.logMessage",
+			context: `when logging message: "${msg}"`
+		};
+		this._psychoJS.logger.debug(`log message: "${msg}"`);
+
+		// TODO check that a participant is connected
+
+		try
+		{
+			const fullPath = `${this._participant.firebaseRef}/log`;
+			await firebaseRT.push(
+				firebaseRT.ref(this._firebase.database, fullPath),
+				msg
+			);
+		}
+		catch(error)
+		{
+			throw {...response, error};
+		}
+	}
+
+	/**
+	 * Set the value of a Firebase Realtime database reference.
+	 *
+	 * @param firebaseRef
+	 * @param value
+	 * @returns {Promise<unknown>}
+	 * @protected
+	 */
+	async _firebaseSet(firebaseRef, value)
+	{
+		const response = {
+			origin: "Protocol.firebaseSet",
+			context: `when setting the Firebase Realtime database reference: ${firebaseRef} to value: ${value}`
+		};
+		this._psychoJS.logger.debug(`set the Firebase Realtime database reference: ${firebaseRef} to value: ${value}`);
+
+		try
+		{
+			await firebaseRT.set(
+				firebaseRT.ref(this._firebase.database, firebaseRef),
+				value
+			);
+		}
+		catch(error)
+		{
+			throw {...response, error};
+		}
+	}
+
+	/**
+	 * Push a value to a Firebase Realtime database reference.
+	 *
+	 * @param firebaseRef
+	 * @param value
+	 * @returns {Promise<unknown>}
+	 * @protected
+	 */
+	async _firebasePush(firebaseRef, value)
+	{
+		const response = {
+			origin: "Protocol.firebasePush",
+			context: `when pushing to the Firebase Realtime database reference: ${firebaseRef} the value: ${value}`
+		};
+		this._psychoJS.logger.debug(`push to the Firebase Realtime database reference: ${firebaseRef} the value: ${value}`);
+
+		try
+		{
+			await firebaseRT.push(
+				firebaseRT.ref(this._firebase.database, firebaseRef),
+				value
+			);
+		}
+		catch(error)
+		{
+			throw {...response, error};
+		}
 	}
 
 	/**
@@ -437,7 +743,7 @@ export class Protocol extends PsychObject
 	 * 	about a protocol participant
 	 */
 	/**
-	 * query information about a protocol participant from the pavlovia server.
+	 * Query information about a protocol participant from the pavlovia server.
 	 *
 	 * @param {string} participantId											- the participant Id
 	 * @returns {Promise<Protocol.GetParticipantPromise>} the response
@@ -469,22 +775,22 @@ export class Protocol extends PsychObject
 				};
 
 				// query the participant information:
-				const postResponse = await this._psychoJS.serverManager.queryServer(
+				const putResponse = await this._psychoJS.serverManager.queryServer(
 					"PUT",
 					url,
 					data,
 					"JSON"
 				);
 
-				const queryParticipantResponse = await postResponse.json();
+				const queryParticipantResponse = await putResponse.json();
 
-				if (postResponse.status !== 200)
+				if (putResponse.status !== 200)
 				{
 					throw ('error' in queryParticipantResponse) ? queryParticipantResponse.error : queryParticipantResponse;
 				}
 
 				self._participant = queryParticipantResponse.participant;
-				self._psychoJS.config.firebase = {
+				self._firebase = {
 					firebaseConfig: queryParticipantResponse.firebaseConfig,
 					customToken: queryParticipantResponse.customToken
 				};
@@ -508,7 +814,7 @@ export class Protocol extends PsychObject
 	}
 
 	/**
-	 * Recursively assign coordinates to every node in the flow.
+	 * Recursively assign coordinates to every node in the protocol flow.
 	 *
 	 * @param node
 	 * @param coordinates
@@ -532,12 +838,12 @@ export class Protocol extends PsychObject
 	 *
 	 * @param coordinates 						- the current coordinates
 	 * @param returnFirstExperiment		- whether to return the first experiment encountered
-	 * @returns {Protocol.node|null}	the next experiment in the protocol flow for the given participant
+	 * @returns {Protocol.node|null}	the next experiment in the protocol flow
 	 * @protected
 	 */
 	_nextExperimentCoordinates(coordinates, returnFirstExperiment = false)
 	{
-		// get the node corresponding to the parent of the coordinates:
+		// get the node corresponding to the given coordinates:
 		const node = this._getNode(this._participant.protocolModel, coordinates);
 
 		// if the node is an experiment:
@@ -566,7 +872,12 @@ export class Protocol extends PsychObject
 			return null;
 		}
 
-		// otherwise:
+		// otherwise, go deeper:
+		if (node.nodes.length === 0)
+		{
+			// note: a non-experiment node should have children, this should never happen
+			return null;
+		}
 		const firstChildNode = node.nodes[0];
 		return this._nextExperimentCoordinates(firstChildNode.coordinates, true);
 	}
