@@ -162,6 +162,9 @@ export class PsychoJS
 		// Shelf:
 		this._shelf = new Shelf({psychoJS: this});
 
+		// server messages:
+		this._serverMsg = new Map();
+
 		// redirection URLs:
 		this._cancellationUrl = undefined;
 		this._completionUrl = undefined;
@@ -373,17 +376,25 @@ export class PsychoJS
 			if (this.getEnvironment() === ExperimentHandler.Environment.SERVER)
 			{
 				// open a session:
-				const params = {};
+				this._sessionParams = {};
 				if (this._serverMsg.has("__pilotToken"))
 				{
-					params.pilotToken = this._serverMsg.get("__pilotToken");
+					this._sessionParams.pilotToken = this._serverMsg.get("__pilotToken");
+				}
+				if (this._serverMsg.has("__protocolId"))
+				{
+					this._sessionParams.protocolId = this._serverMsg.get("__protocolId");
+				}
+				if (this._serverMsg.has("__participantId"))
+				{
+					this._sessionParams.participantId = this._serverMsg.get("__participantId");
 				}
 				if (typeof surveyId !== "undefined")
 				{
-					params.surveyId = surveyId;
+					this._sessionParams.surveyId = surveyId;
 					this._surveyId = surveyId;
 				}
-				await this._serverManager.openSession(params);
+				await this._serverManager.openSession(this._sessionParams);
 
 				// warn the user when they attempt to close the tab or browser:
 				this.beforeunloadCallback = (event) =>
@@ -422,7 +433,8 @@ export class PsychoJS
 						}
 
 						// close the session:
-						self._serverManager.closeSession(false, true);
+						this._sessionParams.isCompleted = false;
+						self._serverManager.closeSession(this._sessionParams, true);
 					}
 
 					if (typeof self._window !== "undefined")
@@ -605,7 +617,8 @@ export class PsychoJS
 			if (isServerEnv)
 			{
 				this.gui.finishDialogNextStep("closing the session");
-				await this._serverManager.closeSession(isCompleted);
+				this._sessionParams.isCompleted = isCompleted;
+				await this._serverManager.closeSession(this._sessionParams);
 			}
 
 			// thank participant for waiting, and either quit or redirect:
@@ -751,7 +764,6 @@ export class PsychoJS
 			};
 
 			// get the server parameters (those starting with a double underscore):
-			this._serverMsg = new Map();
 			util.getUrlParameters().forEach((value, key) =>
 			{
 				if (key.indexOf("__") === 0)

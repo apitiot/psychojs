@@ -79,6 +79,7 @@ export class Scheduler
 	 *
 	 * @param {Scheduler~Task | Scheduler} task - the task to be scheduled
 	 * @param {...*} args - arguments for that task
+	 * @returns {void}
 	 */
 	add(task, ...args)
 	{
@@ -93,6 +94,7 @@ export class Scheduler
 	 * @param {string} taskName - the name of the task
 	 * @param {Scheduler~Task | Scheduler} task - the task to be scheduled
 	 * @param {...*} args - arguments for that task
+	 * @returns {void}
 	 */
 	addNamedTask(taskName, task, ...args)
 	{
@@ -118,16 +120,15 @@ export class Scheduler
 	 */
 	addConditional(condition, thenScheduler, elseScheduler)
 	{
-		const self = this;
-		let task = function()
+		const task = () =>
 		{
 			if (condition())
 			{
-				self.add(thenScheduler);
+				this.add(thenScheduler);
 			}
 			else
 			{
-				self.add(elseScheduler);
+				this.add(elseScheduler);
 			}
 
 			return Scheduler.Event.NEXT;
@@ -205,6 +206,25 @@ export class Scheduler
 	}
 
 	/**
+	 * Condition evaluated when the task is run.
+	 *
+	 * @callback Scheduler~TaskCallback
+	 * @param {string} action
+	 * @param {string} taskName
+	 * @return {void}
+	 */
+	/**
+	 * Set the callback triggered when the scheduler starts a new task..
+	 *
+	 * @param {Scheduler~TaskCallback} taskCallback - the callback
+	 * @returns {void}
+	 */
+	setTaskCallback(taskCallback)
+	{
+		this._taskCallback = taskCallback;
+	}
+
+	/**
 	 * Run the next scheduled tasks, in sequence, until a rendering of the scene is requested.
 	 *
 	 * @name Scheduler#_runNextTasks
@@ -261,6 +281,9 @@ export class Scheduler
 			// note: "if (this._currentTask instanceof Scheduler)" does not work because of CORS...
 			else
 			{
+				// pass the task callback to the scheduler:
+				this._currentTask.setTaskCallback(this._taskCallback);
+
 				state = await this._currentTask._runNextTasks();
 				if (state === Scheduler.Event.QUIT)
 				{

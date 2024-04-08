@@ -9,7 +9,7 @@
 
 import {PsychObject} from "../util/PsychObject.js";
 import {PsychoJS} from "../core/PsychoJS.js";
-import {ExperimentHandler} from "./ExperimentHandler";
+import {ExperimentHandler} from "./ExperimentHandler.js";
 
 import A11yDialog from "a11y-dialog";
 import * as firebaseApp from "firebase/app";
@@ -104,15 +104,36 @@ export class Protocol extends PsychObject
 		};
 
 		// check that a protocol Id is available:
-		this._protocolId = expInfo['protocolId'];
-		if (typeof this._protocolId === "undefined")
+		if (this._psychoJS.serverMsg.has("__protocolId"))
 		{
-			throw "the URL is missing a protocolId parameter";
+			this._protocolId = this._psychoJS.serverMsg.get("__protocolId");
+		}
+		else
+		{
+			this._protocolId = expInfo['protocolId'];
+			if (typeof this._protocolId === "undefined")
+			{
+				throw "the URL is missing a protocolId parameter";
+			}
 		}
 		this._protocol.protocolId = this._protocolId;
 
 		// set participantId, if available:
-		this._participant.participantId = expInfo['participantId'];
+		if (this._psychoJS.serverMsg.has("__participantId"))
+		{
+			this._participant.participantId = this._psychoJS.serverMsg.get("__participantId");
+		}
+		else
+		{
+			if ("participantId" in expInfo)
+			{
+				this._participant.participantId = expInfo['participantId'];
+			}
+			else if ("participantId*" in expInfo)
+			{
+				this._participant.participantId = expInfo['participantId*'];
+			}
+		}
 
 		this._addAttribute('status', Protocol.Status.INITIALISED);
 	}
@@ -455,7 +476,8 @@ export class Protocol extends PsychObject
 		// sign-in to the Firebase Realtime database:
 		await this.firebaseAuthenticate();
 
-		// move onto the next experiment in the protocol flow:
+		// move onto the next experiment in the protocol flow, if appropriate:
+		// TODO is the session attached to the current experiment closed? Is it completed?
 		this._participant.coordinates = this._nextExperimentCoordinates([0]);
 		this._experimentNode = this._getNode(this._participant.protocolModel, this._participant.coordinates);
 	}
@@ -496,8 +518,8 @@ export class Protocol extends PsychObject
 		}
 
 		// run the experiment:
-		let fullUrl = `${this._psychoJS.config.pavlovia.URL}/run/${this._experimentNode.path}?`;
-		fullUrl += `protocolId=${this._protocol.protocolId}&participantId=${this._participant.participantId}`;
+		let fullUrl = `${this._psychoJS.config.pavlovia.URL}/run/${this._experimentNode.path}`;
+		fullUrl += `?__protocolId=${this._protocol.protocolId}&__participantId=${this._participant.participantId}&participantId=${this._participant.participantId}`;
 		window.open(fullUrl, "_blank");
 	}
 
@@ -651,7 +673,7 @@ export class Protocol extends PsychObject
 	}
 
 	/**
-	 * Log a message.
+	 * Log a message for the selected experiment.
 	 *
 	 * @param msg	- the message to be logged
 	 */
@@ -667,7 +689,8 @@ export class Protocol extends PsychObject
 
 		try
 		{
-			const fullPath = `${this._participant.firebaseRef}/log`;
+			const sanitizedPath = this._psychoJS.config.experiment.fullpath.replace("/", "|");
+			const fullPath = `${this._participant.firebaseRef}/log/${sanitizedPath}`;
 			await firebaseRT.push(
 				firebaseRT.ref(this._firebase.database, fullPath),
 				msg
@@ -798,9 +821,6 @@ export class Protocol extends PsychObject
 				// deserialise the participant coordinates:
 				// TODO check for JSON parsing errors
 				this._participant.coordinates = JSON.parse(this._participant.coordinates);
-
-				// add coordinates to the nodes of the protocol flow:
-				this._assignCoordinates(this._participant.protocolModel, [0]);
 
 				this._status = Protocol.Status.READY;
 				resolve({...response });

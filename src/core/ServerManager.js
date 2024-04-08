@@ -238,11 +238,11 @@ export class ServerManager extends PsychObject
 	/**
 	 * Close the session for this experiment on the pavlovia server.
 	 *
-	 * @param {boolean} [isCompleted= false] - whether the experiment was completed
-	 * @param {boolean} [sync= false] - whether to communicate with the server in a synchronous manner
+	 * @param {Object} params 					- the session parameters
+	 * @param {boolean} [sync= false]	- whether to communicate with the server in a synchronous manner
 	 * @returns {Promise<ServerManager.CloseSessionPromise> | void} the response
 	 */
-	async closeSession(isCompleted = false, sync = false)
+	async closeSession(params = {}, sync = false)
 	{
 		const response = {
 			origin: "ServerManager.closeSession",
@@ -259,10 +259,9 @@ export class ServerManager extends PsychObject
 				+ "/api/v2/experiments/" + this._psychoJS.config.gitlab.projectId
 				+ "/sessions/"  + this._psychoJS.config.session.token + "/delete";
 			const formData = new FormData();
-			formData.append("isCompleted", isCompleted);
-			if (typeof this._psychoJS._surveyId !== "undefined")
+			for (const key in params)
 			{
-				formData.append("surveyId", this._psychoJS._surveyId);
+				formData.append(key, params[key]);
 			}
 
 			navigator.sendBeacon(url, formData);
@@ -276,18 +275,10 @@ export class ServerManager extends PsychObject
 			{
 				try
 				{
-					const data = {
-						isCompleted
-					};
-					if (typeof this._psychoJS._surveyId !== "undefined")
-					{
-						data["surveyId"] = this._psychoJS._surveyId;
-					}
-
 					const deleteResponse = await this.queryServer(
 						"DELETE",
 						`experiments/${this._psychoJS.config.gitlab.projectId}/sessions/${this._psychoJS.config.session.token}`,
-						data,
+						params,
 						"FORM"
 					);
 
