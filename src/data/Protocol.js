@@ -10,6 +10,7 @@
 import {PsychObject} from "../util/PsychObject.js";
 import {PsychoJS} from "../core/PsychoJS.js";
 import {ExperimentHandler} from "./ExperimentHandler.js";
+import {MonotonicClock} from "../util/index.js";
 
 import A11yDialog from "a11y-dialog";
 import * as firebaseApp from "firebase/app";
@@ -693,7 +694,10 @@ export class Protocol extends PsychObject
 			const fullPath = `${this._participant.firebaseRef}/log/${sanitizedPath}`;
 			await firebaseRT.push(
 				firebaseRT.ref(this._firebase.database, fullPath),
-				msg
+				{
+					'time': MonotonicClock.getReferenceTime(),
+					'msg': msg
+				}
 			);
 		}
 		catch(error)
