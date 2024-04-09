@@ -126,15 +126,40 @@ body {
 }
 
 .dialog-content .dialog-panel {
-  margin-bottom: 1em;
   padding: 0.5em;
 
   background-color: #FFFFFF;
   box-shadow: inset rgba(255, 255, 255, 1) 1px 1px 2px, inset rgba(0, 0, 0, 0.2) -1px -1px 2px;
 }
 
+/* TODO this is really not ideal, use flex instead*/
+.dialog-content .dialog-panel:not(:last-child) {
+  margin-bottom: 1em;
+}
+
 .dialog-content .dialog-panel p {
   margin-bottom: 0.5em;
+}
+
+.dialog-content .dialog-panel .row {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: stretch;
+  column-gap: 0.5em;
+}
+
+.dialog-content .dialog-panel .column {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  column-gap: 0.5em;
+}
+
+.dialog-content .dialog-panel hr {
+  margin: 1em 0;
+  opacity: 50%;
 }
 
 .dialog-title {

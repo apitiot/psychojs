@@ -89,7 +89,7 @@ export class Protocol extends PsychObject
 		};
 		this._participant = {
 			participantId: "",
-			participantName: undefined,
+			participantName: "",
 			protocolId: undefined,
 			protocolName: undefined,
 			protocolModel: undefined,
@@ -257,15 +257,20 @@ export class Protocol extends PsychObject
 						markup += "</div>";
 
 						// add text box for participant id:
-						markup += "<label for='form-input-participantId'>participant Id*:</label>";
+						markup += "<label for='form-input-participantId'>Participant Id*:</label>";
 						markup += `<input type='text' name='participantId' id='form-input-participantId' value='${this._participant.participantId}' class='text'>`;
+
+						// add text box for participant name:
+						markup += "<label for='form-input-participantName'>Participant Name:</label>";
+						markup += `<input type='text' name='participantName' id='form-input-participantName' value='${this._participant.participantName}' class='text'>`;
+
 					}
 					else if (name === Protocol.Dialog.CONFIRM_EXPERIMENT)
 					{
 						// show selected experiment:
 						// TODO make it look prettier!
 						markup += "<div class='dialog-panel'>";
-						markup += `<div>Next experiment: ${JSON.stringify(this._experimentNode)}</div>`;
+						markup += `<p>Press the [Run] button to start the next experiment in the protocol, which is:</p><p><strong>${this._experimentNode.name}</strong></p>`;
 						markup += "</div>";
 
 						okButtonLabel = "Run";
@@ -357,10 +362,15 @@ export class Protocol extends PsychObject
 							// get the value of ParticipantId:
 							if (name === Protocol.Dialog.QUERY_PARTICIPANT_ID)
 							{
-								const input = document.getElementById("form-input-participantId");
+								let input = document.getElementById("form-input-participantId");
 								if (input)
 								{
 									this._participant.participantId = input.value;
+								}
+								input = document.getElementById("form-input-participantName");
+								if (input)
+								{
+									this._participant.participantName = input.value;
 								}
 							}
 
@@ -477,9 +487,17 @@ export class Protocol extends PsychObject
 		// sign-in to the Firebase Realtime database:
 		await this.firebaseAuthenticate();
 
+		// get the current participant coordinates
+		// note: this is not necessary any longer, since protocol_manager.getParticipant also
+		// returns the coordinates
+		// const coordinatesPath = `${this._participant.firebaseRef}/coordinates`;
+		// const snapshot = await firebaseRT.get(firebaseRT.ref(this._firebase.database, coordinatesPath));
+		// this._participant.coordinates = JSON.parse(snapshot.val());
+		// console.log("current participant coordinates:", this._participant.coordinates);
+
 		// move onto the next experiment in the protocol flow, if appropriate:
 		// TODO is the session attached to the current experiment closed? Is it completed?
-		this._participant.coordinates = this._nextExperimentCoordinates([0]);
+		this._participant.coordinates = this._nextExperimentCoordinates(this._participant.coordinates);
 		this._experimentNode = this._getNode(this._participant.protocolModel, this._participant.coordinates);
 	}
 
@@ -509,7 +527,7 @@ export class Protocol extends PsychObject
 			);
 			await this._firebaseSet(
 				`${this._participant.firebaseRef}/experiment`,
-				JSON.stringify(this._experimentNode.path)
+				this._experimentNode.path
 			);
 		}
 		catch (error)
@@ -588,7 +606,10 @@ export class Protocol extends PsychObject
 			await this.firebaseAuthenticate();
 
 			// setup the PsychoJS onComplete & onCancel callbacks
-			// TODO
+			// TODO if there is a call to setRedirectUrls in the PsychoJS experiment code it will override this one, what to do then?
+			const completionUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}`;
+			const cancellationUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}`;
+			this._psychoJS.setRedirectUrls(completionUrl, cancellationUrl);
 
 			// this._status = Protocol.Status.READY;
 		}
@@ -817,14 +838,11 @@ export class Protocol extends PsychObject
 				}
 
 				self._participant = queryParticipantResponse.participant;
+				self._participant.coordinates = JSON.parse(self._participant.coordinates);
 				self._firebase = {
 					firebaseConfig: queryParticipantResponse.firebaseConfig,
 					customToken: queryParticipantResponse.customToken
 				};
-
-				// deserialise the participant coordinates:
-				// TODO check for JSON parsing errors
-				this._participant.coordinates = JSON.parse(this._participant.coordinates);
 
 				this._status = Protocol.Status.READY;
 				resolve({...response });
@@ -882,7 +900,7 @@ export class Protocol extends PsychObject
 			{
 				// get the ancestor node:
 				const ancestorCoordinates = coordinates.slice(0, coordinates.length - depth);
-				const ancestorNode = this._getNode(this._protocol.flow, ancestorCoordinates);
+				const ancestorNode = this._getNode(this._participant.protocolModel, ancestorCoordinates);
 
 				// start at the next sibling, if there is one:
 				const childIndex = coordinates[coordinates.length-depth];
