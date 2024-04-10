@@ -544,7 +544,6 @@ export class Protocol extends PsychObject
 
 	/**
 	 * Connect a participant to a protocol.
-	 *
 	 */
 	async connectParticipant()
 	{
@@ -580,7 +579,7 @@ export class Protocol extends PsychObject
 				participantId: this._participant.participantId
 			};
 
-			// connect the participant:
+			// submit the request:
 			const putResponse = await this._psychoJS.serverManager.queryServer(
 				"PUT",
 				url,
@@ -611,12 +610,76 @@ export class Protocol extends PsychObject
 			const cancellationUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}`;
 			this._psychoJS.setRedirectUrls(completionUrl, cancellationUrl);
 
+			// setup the Firebase and scheduler two-way communication:
+			this._setupFirebaseSchedulerLink();
+
 			// this._status = Protocol.Status.READY;
 		}
 		catch (error)
 		{
 			console.error(error);
 		}
+	}
+
+	/**
+	 * Setup the Firebase and scheduler two-way communication.
+	 *
+	 * @returns {void}
+	 * @protected
+	 */
+	_setupFirebaseSchedulerLink()
+	{
+		// act upon the commands received from the server:
+		this.onAction( (cmd, args) =>
+		{
+			const experiment = this._psychoJS.experiment;
+
+			// upload results:
+			if (cmd === "UPLOAD_RESULTS")
+			{
+				experiment.save();
+			}
+
+			// restart:
+			if (cmd === "RESTART")
+			{
+				window.location.reload();
+			}
+
+			// quit:
+			if (cmd === "QUIT")
+			{
+				// Check for and save orphaned data
+				if (experiment.isEntryEmpty())
+				{
+					experiment.nextEntry();
+				}
+				this._psychoJS.window.close();
+				this._psychoJS.quit({
+					message: args,
+					isCompleted: false
+				});
+			}
+		});
+
+		// add a scheduler callback:
+		this._psychoJS.scheduler.setTaskCallback( (action, task) =>
+		{
+			// TODO instead of string, using Symbol.toXXX
+			if (action === "START_SCHEDULER")
+			{
+				this.logMessage(action);
+				return;
+			}
+
+			if (action === "START_TASK")
+			{
+				this.logMessage(`${action} ${task}`);
+				return;
+			}
+
+			console.log(action, task);
+		});
 	}
 
 	/**

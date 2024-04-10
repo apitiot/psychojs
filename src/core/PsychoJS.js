@@ -19,6 +19,7 @@ import { Logger } from "./Logger.js";
 import { ServerManager } from "./ServerManager.js";
 import { Window } from "./Window.js";
 import {Shelf} from "../data/Shelf";
+import {Protocol} from "../data/Protocol.js";
 
 /**
  * <p>PsychoJS initialises the library and its various components (e.g. the [ServerManager]{@link module:core.ServerManager}, the [EventManager]{@link module:core.EventManager}), and manages
@@ -279,7 +280,8 @@ export class PsychoJS
 	 * Schedule a task.
 	 *
 	 * @param {module:util.Scheduler~Task} task - the task to be scheduled
-	 * @param {*} [args] - arguments for that task
+	 * @param {*} [args] - the arguments for that task
+	 * @returns {void}
 	 */
 	schedule(task, args)
 	{
@@ -289,15 +291,31 @@ export class PsychoJS
 	}
 
 	/**
+	 * Schedule a task with a name.
+	 *
+	 * @param {string} taskName - the name of the task to be scheduled
+	 * @param {module:util.Scheduler~Task} task - the task to be scheduled
+	 * @param {*} [args] - the arguments for that task
+	 * @returns {void}
+	 */
+	scheduleNamedTask(taskName, task, args)
+	{
+		this.logger.debug("schedule task: ", task.toString().substring(0, 50), "...");
+
+		this._scheduler.addNamedTask(taskName, task, args);
+	}
+
+	/**
 	 * @callback PsychoJS.condition
 	 * @return {boolean} true if the thenScheduler is to be run, false if the elseScheduler is to be run
 	 */
 	/**
 	 * Schedule a series of task based on a condition.
 	 *
-	 * @param {PsychoJS.condition} condition
+	 * @param {PsychoJS.condition} condition - the condition
 	 * @param {Scheduler} thenScheduler - scheduler to run if the condition is true
 	 * @param {Scheduler} elseScheduler - scheduler to run if the condition is false
+	 * @returns {void}
 	 */
 	scheduleCondition(condition, thenScheduler, elseScheduler)
 	{
@@ -461,6 +479,18 @@ export class PsychoJS
 			// start the asynchronous download of resources:
 			this._serverManager.prepareResources(resources);
 
+			// setup a protocol and connect the participant to it, if need be:
+			if (typeof this._sessionParams.protocolId !== "undefined")
+			{
+				this._protocol = new Protocol({
+					psychoJS: this,
+					expInfo
+				});
+
+				// connect the participant to the protocol:
+				await this._protocol.connectParticipant();
+			}
+
 			// if WebGL is not actually available, warn the participant and ask them whether they want to go ahead
 			if (this._checkWebGLSupport && !Window.checkWebGLSupport())
 			{
@@ -492,7 +522,6 @@ export class PsychoJS
 					this._scheduler.start();
 				}
 			}
-
 		}
 		catch (error)
 		{

@@ -86,7 +86,7 @@ module.exports = {
 		"no-tabs": [1, { allowIndentationTabs: true }],
 		"no-template-curly-in-string": 2,
 		"no-throw-literal": 0,
-		"no-trailing-spaces": 2,
+		// "no-trailing-spaces": 2,
 		"no-undef-init": 2,
 		// https://eslint.org/docs/rules/no-underscore-dangle#disallow-dangling-underscores-in-identifiers-no-underscore-dangle
 		"no-underscore-dangle": 0,
