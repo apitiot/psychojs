@@ -176,7 +176,7 @@ export class Protocol extends PsychObject
 					params.pilotToken = this._psychoJS.serverMsg.get("__pilotToken");
 				}
 
-				// open a protocol session:
+				// submit the request:
 				const postResponse = await this._psychoJS.serverManager.queryServer(
 					"POST",
 					url,
@@ -199,6 +199,72 @@ export class Protocol extends PsychObject
 				self._protocol = openSessionResponse.protocol;
 
 				this._status = Protocol.Status.SESSION_OPENED;
+				resolve({...response });
+			}
+			catch (error)
+			{
+				console.error(error);
+				reject({...response, error});
+			}
+		});
+	}
+
+	/**
+	 * @typedef Protocol.CloseProtocolSessionPromise
+	 * @property {Object.<string, *>} [error] an error message if we could not close the session
+	 */
+	/**
+	 * Close a previously opened session for this protocol on the pavlovia server.
+	 *
+	 * @returns {Promise<Protocol.CloseProtocolSessionPromise>} the response
+	 */
+	closeSession(params = {})
+	{
+		const response = {
+			origin: "Protocol.closeSession",
+			context: `when closing a previously opened session for protocol: ${this._protocolId}`
+		};
+		this._psychoJS.logger.debug(`closing a previously opened session for protocol: ${this._protocolId}`);
+		this._status = Protocol.Status.CLOSING_SESSION;
+
+		// closing a session requires access to the server:
+		if (this._psychoJS.config.environment !== ExperimentHandler.Environment.SERVER)
+		{
+			throw {...response, error: "the experiment has to be run on the server: protocols are not available locally"};
+		}
+
+		// check that a session has been previously opened:
+		// TODO
+
+		return new Promise(async (resolve, reject) =>
+		{
+			try
+			{
+				// prepare the request:
+				const url = `protocols/${this._protocolId}/sessions/${this._psychoJS.config.session.sessionToken}`;
+				if (this._psychoJS.serverMsg.has("__pilotToken"))
+				{
+					params.pilotToken = this._psychoJS.serverMsg.get("__pilotToken");
+				}
+
+				// submit the request:
+				const deleteResponse = await this._psychoJS.serverManager.queryServer(
+					"DELETE",
+					url,
+					params,
+					"FORM"
+				);
+
+				const closeSessionResponse = await deleteResponse.json();
+
+				if (deleteResponse.status !== 200)
+				{
+					throw ('error' in closeSessionResponse) ? closeSessionResponse.error : closeSessionResponse;
+				}
+
+				this._psychoJS.config.session.status = "CLOSED";
+
+				// this._status = Protocol.Status.SESSION_OPENED;
 				resolve({...response });
 			}
 			catch (error)
@@ -538,8 +604,8 @@ export class Protocol extends PsychObject
 
 		// run the experiment:
 		let fullUrl = `${this._psychoJS.config.pavlovia.URL}/run/${this._experimentNode.path}`;
-		fullUrl += `?__protocolId=${this._protocol.protocolId}&__participantId=${this._participant.participantId}&participantId=${this._participant.participantId}`;
-		window.open(fullUrl, "_blank");
+		fullUrl += `?__protocolId=${this._protocol.protocolId}&__participantId=${this._participant.participantId}&participantId=${this._participant.participantId}&participantId*=${this._participant.participantId}`;
+		window.open(fullUrl); //, "_blank");
 	}
 
 	/**
@@ -606,8 +672,8 @@ export class Protocol extends PsychObject
 
 			// setup the PsychoJS onComplete & onCancel callbacks
 			// TODO if there is a call to setRedirectUrls in the PsychoJS experiment code it will override this one, what to do then?
-			const completionUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}`;
-			const cancellationUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}`;
+			const completionUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}&participantId*=${this._participant.participantId}`;
+			const cancellationUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}&participantId*=${this._participant.participantId}`;
 			this._psychoJS.setRedirectUrls(completionUrl, cancellationUrl);
 
 			// setup the Firebase and scheduler two-way communication:
@@ -856,16 +922,15 @@ export class Protocol extends PsychObject
 	/**
 	 * Query information about a protocol participant from the pavlovia server.
 	 *
-	 * @param {string} participantId											- the participant Id
 	 * @returns {Promise<Protocol.GetParticipantPromise>} the response
 	 */
-	_getParticipant(participantId)
+	_getParticipant()
 	{
 		const response = {
 			origin: "Protocol._getParticipant",
-			context: `when querying information about participant: ${participantId} from protocol: ${this._protocolId}`
+			context: `when querying information about participant: ${this._participant.participantId} from protocol: ${this._protocolId}`
 		};
-		this._psychoJS.logger.debug(`querying information about participant: ${participantId} from protocol: ${this._protocolId}`);
+		this._psychoJS.logger.debug(`querying information about participant: ${this._participant.participantId} from protocol: ${this._protocolId}`);
 		this._status = Protocol.Status.QUERYING_PARTICIPANT;
 
 		// querying information about a participant requires access to the server:
@@ -874,7 +939,6 @@ export class Protocol extends PsychObject
 			throw {...response, error: "the experiment has to be run on the server: protocols are not available locally"};
 		}
 
-		const self = this;
 		return new Promise(async (resolve, reject) =>
 		{
 			try
@@ -882,7 +946,8 @@ export class Protocol extends PsychObject
 				// prepare the request:
 				const url = `protocols/${this._protocolId}/participants`
 				const data = {
-					participantId
+					participantId: this._participant.participantId,
+					participantName: this._participant.participantName
 				};
 
 				// query the participant information:
@@ -900,9 +965,9 @@ export class Protocol extends PsychObject
 					throw ('error' in queryParticipantResponse) ? queryParticipantResponse.error : queryParticipantResponse;
 				}
 
-				self._participant = queryParticipantResponse.participant;
-				self._participant.coordinates = JSON.parse(self._participant.coordinates);
-				self._firebase = {
+				this._participant = queryParticipantResponse.participant;
+				this._participant.coordinates = JSON.parse(this._participant.coordinates);
+				this._firebase = {
 					firebaseConfig: queryParticipantResponse.firebaseConfig,
 					customToken: queryParticipantResponse.customToken
 				};
