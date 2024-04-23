@@ -554,16 +554,36 @@ export class Protocol extends PsychObject
 		await this.firebaseAuthenticate();
 
 		// get the current participant coordinates
-		// note: this is not necessary any longer, since protocol_manager.getParticipant also
-		// returns the coordinates
+		// note: this is not necessary any longer, since protocol_manager.getParticipant also returns the coordinates
 		// const coordinatesPath = `${this._participant.firebaseRef}/coordinates`;
 		// const snapshot = await firebaseRT.get(firebaseRT.ref(this._firebase.database, coordinatesPath));
 		// this._participant.coordinates = JSON.parse(snapshot.val());
 		// console.log("current participant coordinates:", this._participant.coordinates);
 
-		// move onto the next experiment in the protocol flow, if appropriate:
-		// TODO is the session attached to the current experiment closed? Is it completed?
-		this._participant.coordinates = this._nextExperimentCoordinates(this._participant.coordinates);
+		// check whether we are progressing onto the next experiment or we are repeating the current experiment:
+		let doProgress = false;
+		const currentNode = this._getNode(this._participant.protocolModel, this._participant.coordinates);
+
+		// if the current node is not an experiment (i.e it is a group), then we need to progress:
+		if (currentNode.type !== "EXPERIMENT")
+		{
+			doProgress = true;
+		}
+		else
+		{
+			// if the last session is still open, do not progress:
+			if (("session" in currentNode) && (currentNode.session.status === "CLOSED"))
+			{
+				doProgress = true;
+			}
+		}
+
+		// move onto the next experiment in the protocol flow, if need be:
+		if (doProgress)
+		{
+			this._participant.coordinates = this._nextExperimentCoordinates(this._participant.coordinates);
+		}
+
 		this._experimentNode = this._getNode(this._participant.protocolModel, this._participant.coordinates);
 	}
 
@@ -605,7 +625,8 @@ export class Protocol extends PsychObject
 		// run the experiment:
 		let fullUrl = `${this._psychoJS.config.pavlovia.URL}/run/${this._experimentNode.path}`;
 		fullUrl += `?__protocolId=${this._protocol.protocolId}&__participantId=${this._participant.participantId}&participantId=${this._participant.participantId}&participantId*=${this._participant.participantId}`;
-		window.open(fullUrl); //, "_blank");
+		window.location.href = fullUrl;
+		// window.open(fullUrl, "_blank");
 	}
 
 	/**
