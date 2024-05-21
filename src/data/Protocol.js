@@ -104,6 +104,8 @@ export class Protocol extends PsychObject
 			database: undefined
 		};
 
+		this._peer = null;
+
 		// check that a protocol Id is available:
 		if (this._psychoJS.serverMsg.has("__protocolId"))
 		{
@@ -725,6 +727,7 @@ export class Protocol extends PsychObject
 			if (cmd === "UPLOAD_RESULTS")
 			{
 				experiment.save();
+				return;
 			}
 
 			// restart:
@@ -736,7 +739,7 @@ export class Protocol extends PsychObject
 			// quit:
 			if (cmd === "QUIT")
 			{
-				// Check for and save orphaned data
+				// check for and save orphaned data
 				if (experiment.isEntryEmpty())
 				{
 					experiment.nextEntry();
@@ -746,6 +749,14 @@ export class Protocol extends PsychObject
 					message: args,
 					isCompleted: false
 				});
+				return;
+			}
+
+			// stream the participant's screen to the protocol console:
+			if (cmd === "STREAM_SCREEN")
+			{
+				this._streamScreen();
+				return;
 			}
 		});
 
@@ -767,6 +778,50 @@ export class Protocol extends PsychObject
 
 			console.log(action, task);
 		});
+	}
+
+	/**
+	 * Stream the paricipant's screen to the protocol console, using PeeJS.
+	 *
+	 * @protected
+	 */
+	async _streamScreen()
+	{
+		// if the peer is not already set-up, do so:
+		if (!this._peer)
+		{
+			// note: we use the participant's firebase ref as basis for peer ids:
+			const participantPeerId = `${this._participant.firebaseRef}-participant`;
+			const protocolConsolePeerId = `${this._participant.firebaseRef}-console`;
+
+			this._peer = new Peer(participantPeerId);
+
+			this._peer.on('open', (id) =>
+			{
+				this.logMessage(`Prepared a PeerJS connection at id: ${participantPeerId}`);
+			});
+
+			// prepare to capture the screen:
+			const displayMediaOptions = {
+				video: {
+					displaySurface: "browser",
+				},
+				audio: {
+					suppressLocalAudioPlayback: false,
+				},
+				preferCurrentTab: false,
+				selfBrowserSurface: "exclude",
+				systemAudio: "include",
+				surfaceSwitching: "include",
+				monitorTypeSurfaces: "include",
+			};
+			const screenStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+
+			// call the protocol console:
+			this._peerCall = this._peer.call(protocolConsolePeerId, screenStream);
+
+			// TODO check for errors
+		}
 	}
 
 	/**
