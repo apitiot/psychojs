@@ -791,11 +791,12 @@ export class Protocol extends PsychObject
 		if (!this._peer)
 		{
 			// note: we use the participant's firebase ref as basis for peer ids:
-			const participantPeerId = `${this._participant.firebaseRef}-participant`;
-			const protocolConsolePeerId = `${this._participant.firebaseRef}-console`;
+			const strippedRef = this._participant.firebaseRef.split("/")[2].substring(1);
+			const participantPeerId = `${strippedRef}-participant`;
+			const protocolConsolePeerId = `${strippedRef}-console`;
 
+			// prepare a PeerJ connection:
 			this._peer = new Peer(participantPeerId);
-
 			this._peer.on('open', (id) =>
 			{
 				this.logMessage(`Prepared a PeerJS connection at id: ${participantPeerId}`);
@@ -806,18 +807,22 @@ export class Protocol extends PsychObject
 				video: {
 					displaySurface: "browser",
 				},
-				audio: {
-					suppressLocalAudioPlayback: false,
-				},
-				preferCurrentTab: false,
-				selfBrowserSurface: "exclude",
-				systemAudio: "include",
-				surfaceSwitching: "include",
+
+				// prefer and include the current tab:
 				monitorTypeSurfaces: "include",
+				preferCurrentTab: true,
+				selfBrowserSurface: "include",
+
+				surfaceSwitching: "exclude",
+
+				// audio: {
+				// 	suppressLocalAudioPlayback: false,
+				// },
+				systemAudio: "include",
 			};
 			const screenStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
 
-			// call the protocol console:
+			// call the protocol console and stream the user-selected screen/window/tab:
 			this._peerCall = this._peer.call(protocolConsolePeerId, screenStream);
 
 			// TODO check for errors
