@@ -84,7 +84,8 @@ export class Protocol extends PsychObject
 				participantMsg: undefined,
 				showEndDialog: false,
 				completionUrl: undefined,
-				cancellationUrl: undefined
+				cancellationUrl: undefined,
+				autoProgress: undefined
 			}
 		};
 		this._participant = {
@@ -527,15 +528,16 @@ export class Protocol extends PsychObject
 	}
 
 	/**
-	 * Progress a participant through the protocol flow.
+	 * Setup the participant, i.e. get information about him or her, connect to Firebase, poentially progress through
+	 * the protocol, etc..
 	 */
-	async progress()
+	async setupParticipant()
 	{
 		const response = {
-			origin: "Protocol.progress",
-			context: `when progressing participant: ${this._participant.participantId} through protocol: ${this._protocolId}`
+			origin: "Protocol.setupParticipant",
+			context: `when setting up participant: ${this._participant.participantId} for protocol: ${this._protocolId}`
 		};
-		this._psychoJS.logger.debug(`progressing participant: ${this._participant.participantId} for protocol: ${this._protocolId}`);
+		this._psychoJS.logger.debug(`setting up participant: ${this._participant.participantId} for protocol: ${this._protocolId}`);
 
 		// the session must be opened:
 		if (this._status !== Protocol.Status.SESSION_OPENED)
@@ -555,6 +557,9 @@ export class Protocol extends PsychObject
 		// sign-in to the Firebase Realtime database:
 		await this.firebaseAuthenticate();
 
+		// setup the two-way communication between Firebase and the scheduler :
+		this._setupFirebaseSchedulerLink();
+
 		// get the current participant coordinates
 		// note: this is not necessary any longer, since protocol_manager.getParticipant also returns the coordinates
 		// const coordinatesPath = `${this._participant.firebaseRef}/coordinates`;
@@ -562,35 +567,38 @@ export class Protocol extends PsychObject
 		// this._participant.coordinates = JSON.parse(snapshot.val());
 		// console.log("current participant coordinates:", this._participant.coordinates);
 
-		// check whether we are progressing onto the next experiment or we are repeating the current experiment:
-		let doProgress = false;
-		const currentNode = this._getNode(this._participant.protocolModel, this._participant.coordinates);
+		// check whether we are progressing onto the next experiment:
+		if (this._protocol.experimentParameters.autoProgress)
+		{
+			let doProgress = false;
+			const currentNode = this._getNode(this._participant.protocolModel, this._participant.coordinates);
 
-		// if the current node is not an experiment (i.e it is a group), then we need to progress:
-		if (currentNode.type !== "EXPERIMENT")
-		{
-			doProgress = true;
-		}
-		else
-		{
-			// if the last session is still open, do not progress:
-			if (("session" in currentNode) && (currentNode.session.status === "CLOSED"))
+			// if the current node is not an experiment (i.e it is a group), then we need to progress:
+			if (currentNode.type !== "EXPERIMENT")
 			{
 				doProgress = true;
 			}
-		}
+			else
+			{
+				// if the last session is still open, do not progress:
+				if (("session" in currentNode) && (currentNode.session.status === "CLOSED"))
+				{
+					doProgress = true;
+				}
+			}
 
-		// move onto the next experiment in the protocol flow, if need be:
-		if (doProgress)
-		{
-			this._participant.coordinates = this._nextExperimentCoordinates(this._participant.coordinates);
+			// move onto the next experiment in the protocol flow, if need be:
+			if (doProgress)
+			{
+				this._participant.coordinates = this._nextExperimentCoordinates(this._participant.coordinates);
+			}
 		}
 
 		this._experimentNode = this._getNode(this._participant.protocolModel, this._participant.coordinates);
 	}
 
 	/**
-	 * Run the designated/selection experiment.
+	 * Run the designated/selected experiment.
 	 */
 	async run()
 	{
@@ -711,7 +719,7 @@ export class Protocol extends PsychObject
 	}
 
 	/**
-	 * Setup the Firebase and scheduler two-way communication.
+	 * Setup the two-way communication between Firebase and the scheduler.
 	 *
 	 * @returns {void}
 	 * @protected
@@ -758,6 +766,12 @@ export class Protocol extends PsychObject
 				this._streamScreen();
 				return;
 			}
+
+			// start the experiment:
+			if (cmd === "START_EXPERIMENT")
+			{
+				// TODO
+			}
 		});
 
 		// add a scheduler callback:
@@ -781,7 +795,7 @@ export class Protocol extends PsychObject
 	}
 
 	/**
-	 * Stream the paricipant's screen to the protocol console, using PeeJS.
+	 * Stream the paricipant's screen to the protocol console, using PeerJS.
 	 *
 	 * @protected
 	 */
@@ -795,7 +809,7 @@ export class Protocol extends PsychObject
 			const participantPeerId = `${strippedRef}-participant`;
 			const protocolConsolePeerId = `${strippedRef}-console`;
 
-			// prepare a PeerJ connection:
+			// prepare a PeerJS connection:
 			this._peer = new Peer(participantPeerId);
 			this._peer.on('open', (id) =>
 			{
