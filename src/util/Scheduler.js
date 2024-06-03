@@ -50,7 +50,7 @@ export class Scheduler
 		this._quitAtNextTask = false;
 
 		// callback triggered whenever a new task is run by the scheduler:
-		this._taskCallback = (action, taskName) =>
+		this._taskCallback = (key, value) =>
 		{
 			// [do nothing]
 		};

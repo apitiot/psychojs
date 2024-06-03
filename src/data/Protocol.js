@@ -557,8 +557,8 @@ export class Protocol extends PsychObject
 		// sign-in to the Firebase Realtime database:
 		await this.firebaseAuthenticate();
 
-		// setup the two-way communication between Firebase and the scheduler :
-		this._setupFirebaseSchedulerLink();
+		// setup the two-way communication between Firebase, the scheduler, and the experiment :
+		this._setupFirebaseLink();
 
 		// get the current participant coordinates
 		// note: this is not necessary any longer, since protocol_manager.getParticipant also returns the coordinates
@@ -632,9 +632,16 @@ export class Protocol extends PsychObject
 			throw {...response, error};
 		}
 
-		// run the experiment:
+		// prepare the url:
 		let fullUrl = `${this._psychoJS.config.pavlovia.URL}/run/${this._experimentNode.path}`;
+		// add the participantId:
 		fullUrl += `?__protocolId=${this._protocol.protocolId}&__participantId=${this._participant.participantId}&participantId=${this._participant.participantId}&participantId*=${this._participant.participantId}`;
+		// add the experiment's variables:
+		for (const key in this._participant.variables)
+		{
+			const variable = this._participant.variables[key];
+			fullUrl += `&${key}${(variable.required)?"*":""}=${variable.value}`;
+		}
 		window.location.href = fullUrl;
 		// window.open(fullUrl, "_blank");
 	}
@@ -708,7 +715,7 @@ export class Protocol extends PsychObject
 			this._psychoJS.setRedirectUrls(completionUrl, cancellationUrl);
 
 			// setup the Firebase and scheduler two-way communication:
-			this._setupFirebaseSchedulerLink();
+			this._setupFirebaseLink();
 
 			// this._status = Protocol.Status.READY;
 		}
@@ -719,26 +726,57 @@ export class Protocol extends PsychObject
 	}
 
 	/**
-	 * Setup the two-way communication between Firebase and the scheduler.
+	 * Disconnect the participant from the protocol.
+	 */
+	disconnectParticipant()
+	{
+		// stop streaming the screen capture, if need be:
+		this._stopStreamScreen();
+	}
+
+	/**
+	 * Setup the two-way communication between Firebase, the scheduler, and the experiment.
 	 *
 	 * @returns {void}
 	 * @protected
 	 */
-	_setupFirebaseSchedulerLink()
+	_setupFirebaseLink()
 	{
+		const response = {
+			origin: "Protocol._setupFirebaseLink",
+			context: "when setting up a linkg with the Firebase Realtime database"
+		};
+		this._psychoJS.logger.debug("when setting up a linkg with the Firebase Realtime database");
+
 		// act upon the commands received from the server:
 		this.onAction( (cmd, args) =>
 		{
+			console.log("action:", cmd, args);
+
 			const experiment = this._psychoJS.experiment;
 
-			// upload results:
+			// upload experiment results:
 			if (cmd === "UPLOAD_RESULTS")
 			{
 				experiment.save();
 				return;
 			}
 
-			// restart:
+			// start protocol:
+			if (cmd === "RUN")
+			{
+				this.run();
+			}
+
+			// update participant variables:
+			if (cmd === "UPDATE_VARIABLE")
+			{
+				// TODO check for JSON parsing errors
+				const variable = JSON.parse(args);
+				this._participant.variables[variable.key] = variable;
+			}
+
+			// restart protocol or experiment:
 			if (cmd === "RESTART")
 			{
 				window.location.reload();
@@ -755,7 +793,8 @@ export class Protocol extends PsychObject
 				this._psychoJS.window.close();
 				this._psychoJS.quit({
 					message: args,
-					isCompleted: false
+					isCompleted: false,
+					showOK: false
 				});
 				return;
 			}
@@ -771,6 +810,12 @@ export class Protocol extends PsychObject
 			if (cmd === "START_EXPERIMENT")
 			{
 				// TODO
+			}
+
+			// mark a participant response as correct or incorrect:
+			if (cmd === "MARK_RESPONSE")
+			{
+				experiment.addData('assessor.mark', args);
 			}
 		});
 
@@ -792,10 +837,19 @@ export class Protocol extends PsychObject
 
 			console.log(action, task);
 		});
+
+		// add an experiment data callback:
+		if (this._psychoJS.experiment)
+		{
+			this._psychoJS.experiment.setDataCallback((key, value) =>
+			{
+				this.logMessage(`USER_DATA ${key}: ${value}`);
+			});
+		}
 	}
 
 	/**
-	 * Stream the paricipant's screen to the protocol console, using PeerJS.
+	 * Stream the participant's screen to the protocol console, using PeerJS.
 	 *
 	 * @protected
 	 */
@@ -834,12 +888,33 @@ export class Protocol extends PsychObject
 				// },
 				systemAudio: "include",
 			};
-			const screenStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+			this._screenStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
 
 			// call the protocol console and stream the user-selected screen/window/tab:
-			this._peerCall = this._peer.call(protocolConsolePeerId, screenStream);
+			this._peerCall = this._peer.call(protocolConsolePeerId, this._screenStream);
 
 			// TODO check for errors
+		}
+	}
+
+	/**
+	 * Stop streaming the screen.
+	 *
+	 * @returns {Promise<void>}
+	 * @private
+	 */
+	async _stopStreamScreen()
+	{
+		if (this._screenStream)
+		{
+			let tracks = this._screenStream.getTracks();
+			tracks.forEach((track) => track.stop());
+		}
+
+		if (this._peer)
+		{
+			this._peer.disconnect();
+			// this._peer.destroy();
 		}
 	}
 
@@ -854,7 +929,7 @@ export class Protocol extends PsychObject
 			origin: "Protocol.onAction",
 			context: "when setting up an action callback"
 		};
-		this._psychoJS.logger.debug("when setting up an action callback");
+		this._psychoJS.logger.debug("setting up an action callback");
 
 		// TODO test that the participant exists and is connected
 
@@ -876,7 +951,10 @@ export class Protocol extends PsychObject
 					}
 
 					const action = snapshot.val();
-					actionCallback(action.cmd, action.args);
+					if (action)
+					{
+						actionCallback(action.cmd, action.args);
+					}
 				}
 			);
 		}
@@ -940,7 +1018,7 @@ export class Protocol extends PsychObject
 			await firebaseRT.push(
 				firebaseRT.ref(this._firebase.database, fullPath),
 				{
-					'time': MonotonicClock.getReferenceTime(),
+					'time': MonotonicClock.getDateStr(),
 					'msg': msg
 				}
 			);

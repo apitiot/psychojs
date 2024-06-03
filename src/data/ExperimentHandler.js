@@ -101,6 +101,31 @@ export class ExperimentHandler extends PsychObject
 		this._isCsvHeaderNeeded = true;
 
 		this._experimentEnded = false;
+
+		// callback triggered whenever new data is added:
+		this._dataCallback = (action, taskName) =>
+		{
+			// [do nothing]
+		};
+	}
+
+	/**
+	 * Condition evaluated when the task is run.
+	 *
+	 * @callback DataCallback
+	 * @param {string} key
+	 * @param {string} value
+	 * @return {void}
+	 */
+	/**
+	 * Set the callback triggered when the scheduler starts a new task..
+	 *
+	 * @param {DataCallback} dataCallback - the callback
+	 * @returns {void}
+	 */
+	setDataCallback(dataCallback)
+	{
+		this._dataCallback = dataCallback;
 	}
 
 	/**
@@ -167,6 +192,8 @@ export class ExperimentHandler extends PsychObject
 		}
 
 		this._currentTrialData[key] = value;
+
+		this._dataCallback(key, util.toString(value));
 	}
 
 	/**
