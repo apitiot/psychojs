@@ -677,17 +677,12 @@ export class Protocol extends PsychObject
 
 		try
 		{
-			// prepare the request:
-			const url = `protocols/${this._protocolId}/connect`
-			const data = {
-				participantId: this._participant.participantId
-			};
-
 			// submit the request:
+			const url = `protocols/${this._protocolId}/participants/${this._participant.participantId}/connect`;
 			const putResponse = await this._psychoJS.serverManager.queryServer(
 				"PUT",
 				url,
-				data,
+				{},
 				"JSON"
 			);
 
@@ -735,7 +730,7 @@ export class Protocol extends PsychObject
 	}
 
 	/**
-	 * Setup the two-way communication between Firebase, the scheduler, and the experiment.
+	 * Setup a two-way communication channel between Firebase, the scheduler, and the experiment.
 	 *
 	 * @returns {void}
 	 * @protected
@@ -746,7 +741,7 @@ export class Protocol extends PsychObject
 			origin: "Protocol._setupFirebaseLink",
 			context: "when setting up a linkg with the Firebase Realtime database"
 		};
-		this._psychoJS.logger.debug("when setting up a linkg with the Firebase Realtime database");
+		this._psychoJS.logger.debug("when setting up a two-way link with the Firebase Realtime database");
 
 		// act upon the commands received from the server:
 		this.onAction( (cmd, args) =>
@@ -1101,9 +1096,9 @@ export class Protocol extends PsychObject
 	{
 		const response = {
 			origin: "Protocol._getParticipant",
-			context: `when querying information about participant: ${this._participant.participantId} from protocol: ${this._protocolId}`
+			context: `when querying information about participant: ${this._participant.participantId} registered with protocol: ${this._protocolId}`
 		};
-		this._psychoJS.logger.debug(`querying information about participant: ${this._participant.participantId} from protocol: ${this._protocolId}`);
+		this._psychoJS.logger.debug(`querying information about participant: ${this._participant.participantId} registered with protocol: ${this._protocolId}`);
 		this._status = Protocol.Status.QUERYING_PARTICIPANT;
 
 		// querying information about a participant requires access to the server:
