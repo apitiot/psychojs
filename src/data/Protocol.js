@@ -616,7 +616,11 @@ export class Protocol extends PsychObject
 
 		try
 		{
-			// update the participant's entry in the Firebase Realtime database:
+			// update the participant's entries in the Firebase Realtime database:
+			await this._firebaseSet(
+				`${this._participant.participantRef}/status`,
+				"RUNNING_PROTOCOL"
+			);
 			await this._firebaseSet(
 				`${this._participant.firebaseRef}/coordinates`,
 				JSON.stringify(this._experimentNode.coordinates)
@@ -1112,23 +1116,14 @@ export class Protocol extends PsychObject
 			try
 			{
 				// prepare the request:
-				const url = `protocols/${this._protocolId}/participants`
-				const data = {
-					participantId: this._participant.participantId,
-					participantName: this._participant.participantName
-				};
+				const url = `protocols/${this._protocolId}/participants/${this._participant.participantId}`
 
 				// query the participant information:
-				const putResponse = await this._psychoJS.serverManager.queryServer(
-					"PUT",
-					url,
-					data,
-					"JSON"
-				);
+				const getResponse = await this._psychoJS.serverManager.queryServer("GET", url, {});
 
-				const queryParticipantResponse = await putResponse.json();
+				const queryParticipantResponse = await getResponse.json();
 
-				if (putResponse.status !== 200)
+				if (getResponse.status !== 200)
 				{
 					throw ('error' in queryParticipantResponse) ? queryParticipantResponse.error : queryParticipantResponse;
 				}
