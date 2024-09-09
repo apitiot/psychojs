@@ -618,10 +618,6 @@ export class Protocol extends PsychObject
 		{
 			// update the participant's entries in the Firebase Realtime database:
 			await this._firebaseSet(
-				`${this._participant.participantRef}/status`,
-				"RUNNING_PROTOCOL"
-			);
-			await this._firebaseSet(
 				`${this._participant.firebaseRef}/coordinates`,
 				JSON.stringify(this._experimentNode.coordinates)
 			);
