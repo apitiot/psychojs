@@ -642,6 +642,9 @@ export class Protocol extends PsychObject
 			const variable = this._participant.variables[key];
 			fullUrl += `&${key}${(variable.required)?"*":""}=${variable.value}`;
 		}
+		// add the session:
+		fullUrl += `&session=${this._psychoJS.config.session.sessionToken}`;
+
 		window.location.href = fullUrl;
 		// window.open(fullUrl, "_blank");
 	}
@@ -703,11 +706,14 @@ export class Protocol extends PsychObject
 			// sign-in to the Firebase Realtime database:
 			await this.firebaseAuthenticate();
 
-			// setup the PsychoJS onComplete & onCancel callbacks
+			// setup the PsychoJS onComplete & onCancel callbacks, if need be:
 			// TODO if there is a call to setRedirectUrls in the PsychoJS experiment code it will override this one, what to do then?
-			const completionUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}&participantId*=${this._participant.participantId}`;
-			const cancellationUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}&participantId*=${this._participant.participantId}`;
-			this._psychoJS.setRedirectUrls(completionUrl, cancellationUrl);
+			if (connectParticipantResponse.redirectToProtocol)
+			{
+				const completionUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}&participantId*=${this._participant.participantId}`;
+				const cancellationUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}&participantId*=${this._participant.participantId}`;
+				this._psychoJS.setRedirectUrls(completionUrl, cancellationUrl);
+			}
 
 			// setup the Firebase and scheduler two-way communication:
 			this._setupFirebaseLink();
