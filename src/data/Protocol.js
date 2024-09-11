@@ -616,7 +616,7 @@ export class Protocol extends PsychObject
 
 		try
 		{
-			// update the participant's entry in the Firebase Realtime database:
+			// update the participant's entries in the Firebase Realtime database:
 			await this._firebaseSet(
 				`${this._participant.firebaseRef}/coordinates`,
 				JSON.stringify(this._experimentNode.coordinates)
@@ -642,6 +642,9 @@ export class Protocol extends PsychObject
 			const variable = this._participant.variables[key];
 			fullUrl += `&${key}${(variable.required)?"*":""}=${variable.value}`;
 		}
+		// add the session:
+		fullUrl += `&session=${this._psychoJS.config.session.sessionToken}`;
+
 		window.location.href = fullUrl;
 		// window.open(fullUrl, "_blank");
 	}
@@ -677,17 +680,12 @@ export class Protocol extends PsychObject
 
 		try
 		{
-			// prepare the request:
-			const url = `protocols/${this._protocolId}/connect`
-			const data = {
-				participantId: this._participant.participantId
-			};
-
 			// submit the request:
+			const url = `protocols/${this._protocolId}/participants/${this._participant.participantId}/connect`;
 			const putResponse = await this._psychoJS.serverManager.queryServer(
 				"PUT",
 				url,
-				data,
+				{},
 				"JSON"
 			);
 
@@ -708,11 +706,14 @@ export class Protocol extends PsychObject
 			// sign-in to the Firebase Realtime database:
 			await this.firebaseAuthenticate();
 
-			// setup the PsychoJS onComplete & onCancel callbacks
+			// setup the PsychoJS onComplete & onCancel callbacks, if need be:
 			// TODO if there is a call to setRedirectUrls in the PsychoJS experiment code it will override this one, what to do then?
-			const completionUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}&participantId*=${this._participant.participantId}`;
-			const cancellationUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}&participantId*=${this._participant.participantId}`;
-			this._psychoJS.setRedirectUrls(completionUrl, cancellationUrl);
+			if (connectParticipantResponse.redirectToProtocol)
+			{
+				const completionUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}&participantId*=${this._participant.participantId}`;
+				const cancellationUrl = `${this._psychoJS.config.pavlovia.URL}/run/pavlovia/protocol-2024.2.0/?protocolId=${this._protocolId}&participantId*=${this._participant.participantId}`;
+				this._psychoJS.setRedirectUrls(completionUrl, cancellationUrl);
+			}
 
 			// setup the Firebase and scheduler two-way communication:
 			this._setupFirebaseLink();
@@ -735,7 +736,7 @@ export class Protocol extends PsychObject
 	}
 
 	/**
-	 * Setup the two-way communication between Firebase, the scheduler, and the experiment.
+	 * Setup a two-way communication channel between Firebase, the scheduler, and the experiment.
 	 *
 	 * @returns {void}
 	 * @protected
@@ -746,7 +747,7 @@ export class Protocol extends PsychObject
 			origin: "Protocol._setupFirebaseLink",
 			context: "when setting up a linkg with the Firebase Realtime database"
 		};
-		this._psychoJS.logger.debug("when setting up a linkg with the Firebase Realtime database");
+		this._psychoJS.logger.debug("when setting up a two-way link with the Firebase Realtime database");
 
 		// act upon the commands received from the server:
 		this.onAction( (cmd, args) =>
@@ -1101,9 +1102,9 @@ export class Protocol extends PsychObject
 	{
 		const response = {
 			origin: "Protocol._getParticipant",
-			context: `when querying information about participant: ${this._participant.participantId} from protocol: ${this._protocolId}`
+			context: `when querying information about participant: ${this._participant.participantId} registered with protocol: ${this._protocolId}`
 		};
-		this._psychoJS.logger.debug(`querying information about participant: ${this._participant.participantId} from protocol: ${this._protocolId}`);
+		this._psychoJS.logger.debug(`querying information about participant: ${this._participant.participantId} registered with protocol: ${this._protocolId}`);
 		this._status = Protocol.Status.QUERYING_PARTICIPANT;
 
 		// querying information about a participant requires access to the server:
@@ -1117,23 +1118,14 @@ export class Protocol extends PsychObject
 			try
 			{
 				// prepare the request:
-				const url = `protocols/${this._protocolId}/participants`
-				const data = {
-					participantId: this._participant.participantId,
-					participantName: this._participant.participantName
-				};
+				const url = `protocols/${this._protocolId}/participants/${this._participant.participantId}`
 
 				// query the participant information:
-				const putResponse = await this._psychoJS.serverManager.queryServer(
-					"PUT",
-					url,
-					data,
-					"JSON"
-				);
+				const getResponse = await this._psychoJS.serverManager.queryServer("GET", url, {});
 
-				const queryParticipantResponse = await putResponse.json();
+				const queryParticipantResponse = await getResponse.json();
 
-				if (putResponse.status !== 200)
+				if (getResponse.status !== 200)
 				{
 					throw ('error' in queryParticipantResponse) ? queryParticipantResponse.error : queryParticipantResponse;
 				}
