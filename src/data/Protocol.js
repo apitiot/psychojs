@@ -528,7 +528,7 @@ export class Protocol extends PsychObject
 	}
 
 	/**
-	 * Setup the participant, i.e. get information about him or her, connect to Firebase, poentially progress through
+	 * Setup the participant, i.e. get information about him or her, connect to Firebase, potentially progress through
 	 * the protocol, etc..
 	 */
 	async setupParticipant()
