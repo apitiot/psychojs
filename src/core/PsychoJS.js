@@ -468,7 +468,7 @@ export class PsychoJS
 					{
 						self._experiment.save({
 							tag: "",
-							clear: true
+							clear: false
 						});
 					},
 					self._config.experiment.resultsUpload.period * 60 * 1000
@@ -595,7 +595,7 @@ export class PsychoJS
 	 * @param {boolean} [options.isCompleted = false] - whether the participant has completed the experiment
 	 * @return {void}
 	 */
-	async quit({ message, isCompleted = false, closeWindow = true, showOK = true } = {})
+	async quit({ message, isCompleted = false, closeWindow = true, showOK = true, closeBrowserTab = false } = {})
 	{
 		this.logger.info("[PsychoJS] Quit.");
 
@@ -659,7 +659,6 @@ export class PsychoJS
 					this._protocol.disconnectParticipant();
 				}
 
-
 				if (closeWindow)
 				{
 					// close the window:
@@ -686,12 +685,18 @@ export class PsychoJS
 				{
 					window.location = this._cancellationUrl;
 				}
+
+				// close the browser tab, if requested:
+				if (closeBrowserTab)
+				{
+					window.close();
+				}
 			};
 
 			if (showOK)
 			{
-				let text = "Thank you for your patience. ";
-				text += (typeof message !== "undefined") ? message : "Goodbye!";
+				const defaultMsg = "Thank you for your patience. Goodbye!";
+				const text = (typeof message !== "undefined") ? message : defaultMsg;
 				this._gui.dialog({
 					message: text,
 					onOK: onTerminate
@@ -800,6 +805,7 @@ export class PsychoJS
 			};
 
 			// get the server parameters (those starting with a double underscore):
+			this._serverMsg = new Map();
 			util.getUrlParameters().forEach((value, key) =>
 			{
 				if (key.indexOf("__") === 0)
