@@ -793,9 +793,11 @@ export class Protocol extends PsychObject
 				}
 				this._psychoJS.window.close();
 				this._psychoJS.quit({
-					message: args,
+					// no message since showOK = false
+					// message: args,
 					isCompleted: false,
-					showOK: false
+					showOK: false,
+					closeBrowserTab: true
 				});
 				return;
 			}
