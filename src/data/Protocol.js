@@ -1173,8 +1173,8 @@ export class Protocol extends PsychObject
 	/**
 	 * Get the coordinates of the next experiment in the protocol flow.
 	 *
-	 * @param coordinates 						- the current coordinates
-	 * @param returnFirstExperiment		- whether to return the first experiment encountered
+	 * @param coordinates 						the current coordinates
+	 * @param returnFirstExperiment	whether to return the first experiment encountered
 	 * @returns {Protocol.node|null}	the next experiment in the protocol flow
 	 * @protected
 	 */
