@@ -459,6 +459,12 @@ export class PsychoJS
 					{
 						self._window.close();
 					}
+
+					// disconnect the participant from the protocol, if need be:
+					if (typeof self._sessionParams.protocolId !== "undefined")
+					{
+						this._protocol.disconnectParticipant();
+					}
 				});
 
 				// upload the data at regular interval, if need be:
@@ -653,12 +659,6 @@ export class PsychoJS
 			// thank participant for waiting, and either quit or redirect:
 			const onTerminate = () =>
 			{
-				// disconnect the participant from the protocol, if need be:
-				if (typeof this._sessionParams.protocolId !== "undefined")
-				{
-					this._protocol.disconnectParticipant();
-				}
-
 				if (closeWindow)
 				{
 					// close the window:
@@ -673,6 +673,12 @@ export class PsychoJS
 
 				// return from fullscreen if we were there:
 				this._window.closeFullScreen();
+
+				// disconnect the participant from the protocol, if need be:
+				if (typeof this._sessionParams.protocolId !== "undefined")
+				{
+					this._protocol.disconnectParticipant();
+				}
 
 				this.status = PsychoJS.Status.FINISHED;
 

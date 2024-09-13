@@ -702,6 +702,7 @@ export class Protocol extends PsychObject
 				customToken: connectParticipantResponse.customToken
 			};
 			this._participant.firebaseRef = connectParticipantResponse.firebaseRef;
+			this._participant.participantRef = connectParticipantResponse.participantRef;
 
 			// sign-in to the Firebase Realtime database:
 			await this.firebaseAuthenticate();
@@ -729,10 +730,37 @@ export class Protocol extends PsychObject
 	/**
 	 * Disconnect the participant from the protocol.
 	 */
-	disconnectParticipant()
+	async disconnectParticipant()
 	{
+		const response = {
+			origin: "Protocol.disconnectParticipant",
+			context: `when disconnecting participant: ${this._participant.participantId} from protocol: ${this._protocolId}`
+		};
+		this._psychoJS.logger.debug(`disconnecting participant: ${this._participant.participantId} from protocol: ${this._protocolId}`);
+
 		// stop streaming the screen capture, if need be:
 		this._stopStreamScreen();
+
+
+		// message the participant to terminate the protocol:
+		try
+		{
+			// update the participant's entries in the Firebase Realtime database:
+			await this._firebaseSet(
+				`${this._participant.participantRef}/action`,
+				{
+					cmd: "TERMINATE_PROTOCOL",
+					args: {
+						protocolId: this._protocolId
+					}
+				}
+			);
+		}
+		catch (error)
+		{
+			console.error(error);
+			throw {...response, error};
+		}
 	}
 
 	/**
