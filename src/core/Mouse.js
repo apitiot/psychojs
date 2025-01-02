@@ -3,8 +3,7 @@
  *
  * @author Alain Pitiot
  * @author Sotiri Bakagiannis  - isPressedIn
- * @version 2022.2.3
- * @copyright (c) 2017-2020 Ilixa Ltd. (http://ilixa.com) (c) 2020-2022 Open Science Tools Ltd. (https://opensciencetools.org)
+ * @copyright (c) 2017-2020 Ilixa Ltd. (http://ilixa.com) (c) 2020-2024 Open Science Tools Ltd. (https://opensciencetools.org)
  * @license Distributed under the terms of the MIT License
  */
 
@@ -310,7 +309,7 @@ export class Mouse extends PsychObject
 	/**
 	 * Reset the clocks associated to the given mouse buttons.
 	 *
-	 * @param {Array.number} [buttons= [0,1,2]] the buttons to reset (0: left, 1: center, 2: right)
+	 * @param {number[]} [buttons= [0,1,2]] the buttons to reset (0: left, 1: center, 2: right)
 	 */
 	clickReset(buttons = [0, 1, 2])
 	{

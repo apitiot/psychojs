@@ -139,6 +139,8 @@ export class Protocol extends PsychObject
 			}
 		}
 
+		this._isMirror = this._psychoJS.serverMsg.has("__mirror") ? this._psychoJS.serverMsg.get("__mirror") : false;
+
 		this._addAttribute('status', Protocol.Status.INITIALISED);
 	}
 
@@ -848,34 +850,67 @@ export class Protocol extends PsychObject
 			{
 				experiment.addData('assessor.mark', args);
 			}
+
+			if (this._isMirror)
+			{
+				if (cmd === "MOUSE_EVENT")
+				{
+					const mouseEvent = JSON.parse(args);
+					this._psychoJS.eventManager.triggerMouseEvent(mouseEvent);
+				}
+			}
 		});
 
-		// add a scheduler callback:
-		this._psychoJS.scheduler.setTaskCallback( (action, task) =>
+		if (!this._isMirror)
 		{
-			// TODO instead of string, using Symbol.toXXX
-			if (action === "START_SCHEDULER")
+			// add a scheduler callback:
+			this._psychoJS.scheduler.setTaskCallback( (action, task) =>
 			{
-				this.logMessage(action);
-				return;
-			}
+				// TODO instead of string, using Symbol.toXXX
+				if (action === "START_SCHEDULER")
+				{
+					this.logMessage('{"event": "START_SCHEDULER"}');
+					return;
+				}
 
-			if (action === "START_TASK")
-			{
-				this.logMessage(`${action} ${task}`);
-				return;
-			}
+				if (action === "START_TASK")
+				{
+					this.logMessage(`${action} ${task}`);
+					return;
+				}
 
-			console.log(action, task);
-		});
-
-		// add an experiment data callback:
-		if (this._psychoJS.experiment)
-		{
-			this._psychoJS.experiment.setDataCallback((key, value) =>
-			{
-				this.logMessage(`USER_DATA ${key}: ${value}`);
+				console.log(action, task);
 			});
+
+			// add an experiment data callback:
+			if (this._psychoJS.experiment)
+			{
+				this._psychoJS.experiment.setDataCallback((key, value) =>
+				{
+					this.logMessage(`USER_DATA ${key}: ${value}`);
+				});
+			}
+
+			// add an event manager callback:
+			this._psychoJS.eventManager.setEventCallback((keyEvent, mouseInfo) =>
+				{
+					if (typeof mouseInfo !== "undefined")
+					{
+						const prunedMouseInfo = {
+							event: "MOUSE_EVENT",
+							type: mouseInfo.type,
+							pos: mouseInfo.pos,
+							wheelRel: mouseInfo.wheelRel,
+							buttons: {
+								pressed: mouseInfo.buttons.pressed,
+								times: mouseInfo.buttons.times
+							}
+						};
+
+						this.logMessage(JSON.stringify(prunedMouseInfo));
+					}
+				}
+			);
 		}
 	}
 

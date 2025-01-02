@@ -2,13 +2,13 @@
  * Manager handling the keyboard and mouse/touch events.
  *
  * @author Alain Pitiot
- * @version 2022.2.3
- * @copyright (c) 2017-2020 Ilixa Ltd. (http://ilixa.com) (c) 2020-2022 Open Science Tools Ltd. (https://opensciencetools.org)
+ * @copyright (c) 2017-2020 Ilixa Ltd. (http://ilixa.com) (c) 2020-2024 Open Science Tools Ltd. (https://opensciencetools.org)
  * @license Distributed under the terms of the MIT License
  */
 
 import { Clock, MonotonicClock } from "../util/Clock.js";
 import { PsychoJS } from "./PsychoJS.js";
+import * as util from "../util/Util";
 
 /**
  * <p>This manager handles all participant interactions with the experiment, i.e. keyboard, mouse and touch events.</p>
@@ -36,7 +36,7 @@ export class EventManager
 
 		// mouse info:
 		// note: (a) clocks are reset on mouse button presses
-		//       (b) the mouse listeners are added to the PIXI renderer, upon the latter's creation (see  Window.js)
+		//       (b) the mouse listeners are added to the PIXI renderer, upon the latter's creation (see Window.js)
 		this._mouseInfo = {
 			pos: [0, 0],
 			wheelRel: [0.0, 0.0],
@@ -49,6 +49,31 @@ export class EventManager
 			// clock reset when mouse is moved:
 			moveClock: new Clock(),
 		};
+
+		// callback triggered whenever a mouse or keyboard event occurs:
+		this._eventCallback = (keyEvent, mouseInfo) =>
+		{
+			// [do nothing]
+		};
+	}
+
+	/**
+	 * Callback triggered whenever a mouse or keyboard event occurs.
+	 *
+	 * @callback EventCallback
+	 * @param {object} keyEvent
+	 * @param {object} mouseEvent
+	 * @return {void}
+	 */
+	/**
+	 * Set the callback triggered when the scheduler starts a new task..
+	 *
+	 * @param {EventCallback} eventCallback - the callback
+	 * @returns {void}
+	 */
+	setEventCallback(eventCallback)
+	{
+		this._eventCallback = eventCallback;
 	}
 
 	/**
@@ -204,6 +229,8 @@ export class EventManager
 			self._mouseInfo.pos = [event.offsetX, event.offsetY];
 
 			this._psychoJS.experimentLogger.data("Mouse: " + event.button + " button down, pos=(" + self._mouseInfo.pos[0] + "," + self._mouseInfo.pos[1] + ")");
+
+			self._eventCallback(undefined, {...self._mouseInfo, type: "pointerdown"});
 		}, false);
 
 		renderer.view.addEventListener("touchstart", (event) =>
@@ -218,6 +245,7 @@ export class EventManager
 			self._mouseInfo.pos = [touches[0].pageX, touches[0].pageY];
 
 			this._psychoJS.experimentLogger.data("Mouse: " + event.button + " button down, pos=(" + self._mouseInfo.pos[0] + "," + self._mouseInfo.pos[1] + ")");
+			self._eventCallback(undefined, {...self._mouseInfo, type: "touchstart"});
 		}, false);
 
 		renderer.view.addEventListener("pointerup", (event) =>
@@ -229,6 +257,7 @@ export class EventManager
 			self._mouseInfo.pos = [event.offsetX, event.offsetY];
 
 			this._psychoJS.experimentLogger.data("Mouse: " + event.button + " button up, pos=(" + self._mouseInfo.pos[0] + "," + self._mouseInfo.pos[1] + ")");
+			self._eventCallback(undefined, {...self._mouseInfo, type: "pointerup"});
 		}, false);
 
 		renderer.view.addEventListener("pointerout", (event) =>
@@ -241,6 +270,7 @@ export class EventManager
 			self._mouseInfo.pos = [event.offsetX, event.offsetY];
 
 			this._psychoJS.experimentLogger.data("Mouse: out, pos=(" + self._mouseInfo.pos[0] + "," + self._mouseInfo.pos[1] + ")");
+			// self._eventCallback(undefined, {...self._mouseInfo, type: "pointerout"});
 		}, false);
 
 		renderer.view.addEventListener("touchend", (event) =>
@@ -255,6 +285,7 @@ export class EventManager
 			self._mouseInfo.pos = [touches[0].pageX, touches[0].pageY];
 
 			this._psychoJS.experimentLogger.data("Mouse: " + event.button + " button up, pos=(" + self._mouseInfo.pos[0] + "," + self._mouseInfo.pos[1] + ")");
+			self._eventCallback(undefined, {...self._mouseInfo, type: "touchend"});
 		}, false);
 
 		renderer.view.addEventListener("pointermove", (event) =>
@@ -263,6 +294,7 @@ export class EventManager
 
 			self._mouseInfo.moveClock.reset();
 			self._mouseInfo.pos = [event.offsetX, event.offsetY];
+			// self._eventCallback(undefined, {...self._mouseInfo, type: "pointermove"}););
 		}, false);
 
 		renderer.view.addEventListener("touchmove", (event) =>
@@ -274,6 +306,7 @@ export class EventManager
 			// we use the first touch, discarding all others:
 			const touches = event.changedTouches;
 			self._mouseInfo.pos = [touches[0].pageX, touches[0].pageY];
+			// self._eventCallback(undefined, {...self._mouseInfo, type: "touchmove"}););
 		}, false);
 
 		// (*) wheel
@@ -283,7 +316,25 @@ export class EventManager
 			self._mouseInfo.wheelRel[1] += event.deltaY;
 
 			this._psychoJS.experimentLogger.data("Mouse: wheel shift=(" + event.deltaX + "," + event.deltaY + "), pos=(" + self._mouseInfo.pos[0] + "," + self._mouseInfo.pos[1] + ")");
+			self._eventCallback(undefined, {...self._mouseInfo, type: "wheel"});
 		}, false);
+	}
+
+	/**
+	 * Simulate a mouse event.
+	 *
+	 * @param mouseInfo
+	 */
+	triggerMouseEvent(mouseInfo)
+	{
+		this._psychoJS.logger.debug(`trigger mouse event: ${JSON.stringify(mouseInfo)}`);
+
+		this._mouseInfo.pos = mouseInfo.pos;
+		this._mouseInfo.wheelRel = mouseInfo.wheelRel;
+		this._mouseInfo.buttons.pressed = mouseInfo.buttons.pressed;
+		this._mouseInfo.buttons.times = mouseInfo.buttons.times;
+
+		// TODO also update the logs?
 	}
 
 	/**

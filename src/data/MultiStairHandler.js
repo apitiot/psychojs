@@ -2,8 +2,7 @@
  * Multiple Staircase Trial Handler
  *
  * @author Alain Pitiot
- * @version 2021.2.3
- * @copyright (c) 2017-2020 Ilixa Ltd. (http://ilixa.com) (c) 2020-2022 Open Science Tools Ltd.
+ * @copyright (c) 2017-2020 Ilixa Ltd. (http://ilixa.com) (c) 2020-2024 Open Science Tools Ltd.
  *   (https://opensciencetools.org)
  * @license Distributed under the terms of the MIT License
  */
@@ -11,6 +10,7 @@
 
 import {TrialHandler} from "./TrialHandler.js";
 import {QuestHandler} from "./QuestHandler.js";
+import {StairHandler} from "./StairHandler.js";
 import * as util from "../util/Util.js";
 import seedrandom from "seedrandom";
 
@@ -36,7 +36,8 @@ export class MultiStairHandler extends TrialHandler
 	 * @param {Array.<Object> | String} [options.conditions= [undefined] ] - if it is a string,
 	 * 	we treat it as the name of a conditions resource
 	 * @param {module:data.TrialHandler.Method} options.method - the trial method
-	 * @param {number} [options.nTrials=50] - maximum number of trials
+	 * @param {number} [options.nTrials=50] - minimum number of trials
+	 * @param {number} [options.maxTrials=200] - maximum number of trials
 	 * @param {number} options.randomSeed - seed for the random number generator
 	 * @param {string} options.name - name of the handler
 	 * @param {boolean} [options.autoLog= false] - whether or not to log
@@ -48,6 +49,7 @@ export class MultiStairHandler extends TrialHandler
 		conditions,
 		method = TrialHandler.Method.RANDOM,
 		nTrials = 50,
+		maxTrials = 200,
 		randomSeed,
 		name,
 		autoLog
@@ -58,19 +60,20 @@ export class MultiStairHandler extends TrialHandler
 			name,
 			autoLog,
 			seed: randomSeed,
-			// note: multiStairHandler is a sequential TrialHandler, we deal with randomness
-			// in _nextTrial
+			// note: multiStairHandler is a sequential TrialHandler, we deal with randomness in _nextTrial
 			method: TrialHandler.Method.SEQUENTIAL,
-			trialList: Array(nTrials),
+			trialList: Array(maxTrials),
 			nReps: 1
 		});
 
-		// now that we have initialised a sequential TrialHandler, we update method:
+		// note: now that we have initialised a sequential TrialHandler, we update method:
 		this._multiMethod = method;
+
 		this._addAttribute("varName", varName);
 		this._addAttribute("stairType", stairType, MultiStairHandler.StaircaseType.SIMPLE);
 		this._addAttribute("conditions", conditions, [undefined]);
 		this._addAttribute("nTrials", nTrials);
+		this._addAttribute("maxTrials", maxTrials);
 
 		if (typeof randomSeed !== "undefined")
 		{
@@ -80,6 +83,8 @@ export class MultiStairHandler extends TrialHandler
 		{
 			this._randomNumberGenerator = seedrandom();
 		}
+
+		this._finished = false;
 
 		this._prepareStaircases();
 		this._nextTrial();
@@ -107,11 +112,10 @@ export class MultiStairHandler extends TrialHandler
 			return this._currentStaircase.getQuestValue();
 		}
 
-		// TODO similar for simple staircase:
-		// if (this._currentStaircase instanceof StaircaseHandler)
-		// {
-		//    return this._currentStaircase.getStairValue();
-		// }
+		if (this._currentStaircase instanceof StairHandler)
+		{
+		   return this._currentStaircase.getStairValue();
+		}
 
 		return undefined;
 	}
@@ -125,6 +129,8 @@ export class MultiStairHandler extends TrialHandler
 	 */
 	addResponse(response, value)
 	{
+		this._psychoJS.logger.debug(`response= ${response}`);
+
 		// check that response is either 0 or 1:
 		if (response !== 0 && response !== 1)
 		{
@@ -162,12 +168,6 @@ export class MultiStairHandler extends TrialHandler
 				throw "conditions should be a non empty array of objects";
 			}
 
-			// TODO this is temporary until we have implemented StairHandler:
-			if (this._stairType === MultiStairHandler.StaircaseType.SIMPLE)
-			{
-				throw "'simple' staircases are currently not supported";
-			}
-
 			for (const condition of this._conditions)
 			{
 				// each condition must be an object:
@@ -191,6 +191,7 @@ export class MultiStairHandler extends TrialHandler
 				{
 					throw "QUEST conditions must include a startValSd field";
 				}
+
 			}
 		}
 		catch (error)
@@ -233,15 +234,56 @@ export class MultiStairHandler extends TrialHandler
 					{
 						args.nTrials = this._nTrials;
 					}
+					if (typeof condition.maxTrials === "undefined")
+					{
+						args.maxTrials = this._maxTrials;
+					}
+
+					// inform the StairHandler that it is instantiated from a MultiStairHandler
+					// (and so there is no need to update the trial list there since it is updated here)
+					args.fromMultiStair = true;
+
+					// TODO extraArgs
 
 					handler = new QuestHandler(args);
 				}
 
 				// simple StairCase handler:
-				if (this._stairType === MultiStairHandler.StaircaseType.SIMPLE)
+				else if (this._stairType === MultiStairHandler.StaircaseType.SIMPLE)
 				{
-					// TODO not supported just yet, an exception is raised in _validateConditions
-					continue;
+					const args = Object.assign({}, condition);
+					args.psychoJS = this._psychoJS;
+					args.varName = this._varName;
+					// label becomes name:
+					args.name = condition.label;
+					args.autoLog = this._autoLog;
+					if (typeof condition.nTrials === "undefined")
+					{
+						args.nTrials = this._nTrials;
+					}
+					if (typeof condition.maxTrials === "undefined")
+					{
+						args.maxTrials = this._maxTrials;
+					}
+
+					// inform the StairHandler that it is instantiated from a MultiStairHandler
+					// (and so there is no need to update the trial list there since it is updated here)
+					args.fromMultiStair = true;
+
+					// gather all args above and beyond those expected by the StairHandler constructor
+					// in a separate "extraArgs" argument:
+					const extraArgs = {};
+					const stairHandlerConstructorArgs = ["label", "psychoJS", "varName", "startVal", "minVal", "maxVal", "nTrials", "maxTrials", "nReversals", "nUp", "nDown", "applyInitialRule", "stepSizes", "stepType", "name", "autolog", "fromMultiStair", "extraArgs"];
+					for (const key in condition)
+					{
+						if (stairHandlerConstructorArgs.indexOf(key) === -1)
+						{
+							extraArgs[key] = condition[key];
+						}
+					}
+					args["extraArgs"] = extraArgs;
+
+					handler = new StairHandler(args);
 				}
 
 				this._staircases.push(handler);
@@ -267,6 +309,8 @@ export class MultiStairHandler extends TrialHandler
 	 */
 	_nextTrial()
 	{
+		this._psychoJS.logger.debug(`current staircase (before update)= ${this._currentStaircase}`);
+
 		try
 		{
 			// if the current pass is empty, get a new one:
@@ -298,7 +342,6 @@ export class MultiStairHandler extends TrialHandler
 			// pick the next staircase in the pass:
 			this._currentStaircase = this._currentPass.shift();
 
-
 			// test for termination:
 			if (typeof this._currentStaircase === "undefined")
 			{
@@ -325,11 +368,10 @@ export class MultiStairHandler extends TrialHandler
 			{
 				value = this._currentStaircase.getQuestValue();
 			}
-			// TODO add a test for simple staircase:
-			// if (this._currentStaircase instanceof StaircaseHandler)
-			// {
-			// value = this._currentStaircase.getStairValue();
-			// }
+			if (this._currentStaircase instanceof StairHandler)
+			{
+				value = this._currentStaircase.getStairValue();
+			}
 
 
 			this._psychoJS.logger.debug(`selected staircase: ${this._currentStaircase.name}, estimated value for variable ${this._varName}: ${value}`);
@@ -342,8 +384,10 @@ export class MultiStairHandler extends TrialHandler
 				{
 					this._trialList[t] = {
 						[this._name+"."+this._varName]: value,
-						[this._name+".intensity"]: value
+						[this._name+".intensity"]: value,
+						[this._varName]: value
 					};
+
 					for (const attribute of this._currentStaircase._userAttributes)
 					{
 						// "name" becomes "label" again:
@@ -356,6 +400,14 @@ export class MultiStairHandler extends TrialHandler
 							this._trialList[t][this._name+"."+attribute] = this._currentStaircase["_" + attribute];
 						}
 					}
+
+					for (const arg in this._currentStaircase._extraArgs)
+					{
+						this._trialList[t][this._name+"."+arg] = this._currentStaircase._extraArgs[arg];
+						this._trialList[t][arg] = this._currentStaircase._extraArgs[arg];
+					}
+
+					this._psychoJS.logger.debug(`updated the trialList at index: ${t} to: ${JSON.stringify(this._trialList[t])}`);
 
 					if (typeof this._snapshots[t] !== "undefined")
 					{
@@ -383,6 +435,7 @@ export class MultiStairHandler extends TrialHandler
 							}
 						}
 					}
+
 					break;
 				}
 			}

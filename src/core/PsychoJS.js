@@ -3,8 +3,7 @@
  * Main component of the PsychoJS library.
  *
  * @author Alain Pitiot
- * @version 2022.2.3
- * @copyright (c) 2017-2020 Ilixa Ltd. (http://ilixa.com) (c) 2020-2022 Open Science Tools Ltd. (https://opensciencetools.org)
+ * @copyright (c) 2017-2020 Ilixa Ltd. (http://ilixa.com) (c) 2020-2024 Open Science Tools Ltd. (https://opensciencetools.org)
  * @license Distributed under the terms of the MIT License
  */
 
@@ -145,7 +144,7 @@ export class PsychoJS
 		});
 
 		// add the pavlovia server to the list of hosts:
-		const pavloviaHosts = new Set([...hosts, "https://pavlovia.org/run/", "https://run.pavlovia.org/", "https://devlovia.org/run/", "https://run.devlovia.org/"]);
+		const pavloviaHosts = new Set([...hosts, "https://pavlovia.org/run/", "https://run.pavlovia.org/"]);
 		this._hosts = Array.from(pavloviaHosts);
 
 		// GUI:
@@ -192,8 +191,8 @@ export class PsychoJS
 		// whether to save results at the end of the experiment:
 		this._saveResults = saveResults;
 
+		this.logger.info("[PsychoJS] Version 2024.3.0");
 		this.logger.info("[PsychoJS] Initialised.");
-		this.logger.info("[PsychoJS] @version 2024.1.0");
 
 		// hide the initialisation message:
 		const root = document.getElementById("root");

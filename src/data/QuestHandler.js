@@ -2,8 +2,7 @@
  * Quest Trial Handler
  *
  * @author Alain Pitiot & Thomas Pronk
- * @version 2022.2.3
- * @copyright (c) 2017-2020 Ilixa Ltd. (http://ilixa.com) (c) 2020-2022 Open Science Tools Ltd. (https://opensciencetools.org)
+ * @copyright (c) 2017-2020 Ilixa Ltd. (http://ilixa.com) (c) 2020-2024 Open Science Tools Ltd. (https://opensciencetools.org)
  * @license Distributed under the terms of the MIT License
  */
 
@@ -28,7 +27,8 @@ export class QuestHandler extends TrialHandler
 	 * @param {number} options.minVal - minimum value for the threshold
 	 * @param {number} options.maxVal - maximum value for the threshold
 	 * @param {number} [options.pThreshold=0.82] - threshold criterion expressed as probability of getting a correct response
-	 * @param {number} options.nTrials - maximum number of trials
+	 * @param {number} options.nTrials - minimum number of trials
+	 * @param {number} options.maxTrials - maximum number of trials
 	 * @param {number} options.stopInterval - minimum [5%, 95%] confidence interval required for the loop to stop
 	 * @param {QuestHandler.Method} options.method - the QUEST method
 	 * @param {number} [options.beta=3.5] - steepness of the QUEST psychometric function
@@ -47,6 +47,7 @@ export class QuestHandler extends TrialHandler
 		maxVal,
 		pThreshold,
 		nTrials,
+		maxTrials = 200,
 		stopInterval,
 		method,
 		beta,
@@ -62,7 +63,7 @@ export class QuestHandler extends TrialHandler
 			name,
 			autoLog,
 			method: TrialHandler.Method.SEQUENTIAL,
-			trialList: Array(nTrials),
+			trialList: Array(maxTrials),
 			nReps: 1
 		});
 
@@ -73,6 +74,7 @@ export class QuestHandler extends TrialHandler
 		this._addAttribute("startValSd", startValSd);
 		this._addAttribute("pThreshold", pThreshold, 0.82);
 		this._addAttribute("nTrials", nTrials);
+		this._addAttribute("maxTrials", maxTrials);
 		this._addAttribute("stopInterval", stopInterval, Number.MIN_VALUE);
 		this._addAttribute("beta", beta, 3.5);
 		this._addAttribute("delta", delta, 0.01);
