@@ -51,6 +51,11 @@ export class Microphone extends PsychObject
 			this._psychoJS.experimentLogger.exp(`Created ${this.name} = ${this.toString()}`);
 		}
 
+		// an estimate of the current microphone volume:
+		this._volume = 0.0;
+
+		this._setupVolumeEstimator();
+
 		// prepare a device field for parity with PsychoPy, until PsychoPy builder
 		// code generator adequately deals with it (i.e. removes device
 		// and does not call reopen):
@@ -62,10 +67,9 @@ export class Microphone extends PsychObject
 
 			getCurrentVolume: (options) =>
 			{
-				this._psychoJS.logger.warn("Microphone.device.getCurrentVolume always returns 0, it is there for parity with PsychoPy.");
-
 				const vol = new Map();
-				vol[0] = 0;
+				vol["__len__"] = 1;
+				vol[0] = this._volume;
 				return vol;
 			}
 		};
@@ -100,6 +104,12 @@ export class Microphone extends PsychObject
 				}
 
 				this._recorder.start();
+
+				// start estimating the microphone volume:
+				if (this._volumeCallback !== null && this._volumeId === null)
+				{
+					this._volumeId = setInterval(this._volumeCallback, 20);
+				}
 
 				// return a promise, which will be satisfied when the recording actually starts, which
 				// is also when the reset of the clock and the change of status takes place
@@ -147,6 +157,13 @@ export class Microphone extends PsychObject
 			// and then a stop event
 			// ref: https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/stop
 			this._recorder.stop();
+
+			// stop estimating the microphone volume:
+			if (this._volumeId !== null)
+			{
+				clearInterval(this._volumeId);
+				this._volumeId = null;
+			}
 
 			// return a promise, which will be satisfied when the recording actually stops and the data
 			// has been made available:
@@ -504,5 +521,59 @@ export class Microphone extends PsychObject
 			self._psychoJS.logger.error("audio recording error: " + JSON.stringify(event));
 			self._status = PsychoJS.Status.ERROR;
 		};
+	}
+
+	/**
+	 * Setup an estimator for the microphone volume.
+	 *
+	 * @note This is adapted from https://stackoverflow.com/a/64650826
+	 * @protected
+	 */
+	async _setupVolumeEstimator()
+	{
+		this._volumeCallback = null;
+		this._volumeId = null;
+
+		try
+		{
+			const audioStream = await navigator.mediaDevices.getUserMedia({
+				audio: {
+					echoCancellation: true
+				}
+			});
+			const audioContext = new AudioContext();
+			const audioSource = audioContext.createMediaStreamSource(audioStream);
+
+			const analyser = audioContext.createAnalyser();
+			analyser.fftSize = 512;
+			analyser.minDecibels = -127;
+			analyser.maxDecibels = 0;
+			analyser.smoothingTimeConstant = 0.4;
+
+			audioSource.connect(analyser);
+
+			const volumes = new Uint8Array(analyser.frequencyBinCount);
+			this._volumeCallback = () =>
+			{
+				analyser.getByteFrequencyData(volumes);
+
+				let volumeSum = 0;
+				for (const volume of volumes)
+				{
+					volumeSum += volume;
+				}
+				const averageVolume = volumeSum / volumes.length;
+
+				this._volume = averageVolume * 100.0 / (analyser.maxDecibels - analyser.minDecibels);
+			};
+		}
+		catch(error)
+		{
+			throw {
+				origin: "Microphone._setupVolumeEstimator",
+				context: "when setting up a volume estimator for microphone: " + this._name,
+				error
+			};
+		}
 	}
 }

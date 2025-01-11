@@ -284,6 +284,13 @@ export class ExperimentHandler extends PsychObject
 		clear = false
 	} = {})
 	{
+		// no saving for mirror experiments:
+		const isMirror = this._psychoJS.serverMsg.has("__mirror") ? this._psychoJS.serverMsg.get("__mirror") : false;
+		if (isMirror)
+		{
+			return;
+		}
+
 		this._psychoJS.logger.info("[PsychoJS] Save experiment results.");
 
 		// get attributes:

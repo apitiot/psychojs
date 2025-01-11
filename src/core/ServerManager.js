@@ -843,6 +843,13 @@ export class ServerManager extends PsychObject
 	 */
 	uploadData(key, value, sync = false)
 	{
+		// no upload for mirror experiments:
+		const isMirror = this._psychoJS.serverMsg.has("__mirror") ? this._psychoJS.serverMsg.get("__mirror") : false;
+		if (isMirror)
+		{
+			return;
+		}
+
 		const response = {
 			origin: "ServerManager.uploadData",
 			context: "when uploading participant's results for experiment: " + this._psychoJS.config.experiment.fullpath,
@@ -912,6 +919,13 @@ export class ServerManager extends PsychObject
 	 */
 	uploadLog(logs, compressed = false)
 	{
+		// no upload for mirror experiments:
+		const isMirror = this._psychoJS.serverMsg.has("__mirror") ? this._psychoJS.serverMsg.get("__mirror") : false;
+		if (isMirror)
+		{
+			return;
+		}
+
 		const response = {
 			origin: "ServerManager.uploadLog",
 			context: "when uploading participant's log for experiment: " + this._psychoJS.config.experiment.fullpath,
@@ -984,6 +998,13 @@ export class ServerManager extends PsychObject
 													 dialogMsg = "Please wait a few moments while the data is uploading to the server"
 												 })
 	{
+		// no uploading for mirror experiments:
+		const isMirror = this._psychoJS.serverMsg.has("__mirror") ? this._psychoJS.serverMsg.get("__mirror") : false;
+		if (isMirror)
+		{
+			return;
+		}
+
 		const response = {
 			origin: "ServerManager.uploadAudio",
 			context: "when uploading media data for experiment: " + this._psychoJS.config.experiment.fullpath,
@@ -1012,7 +1033,16 @@ export class ServerManager extends PsychObject
 
 			// prepare the request:
 			const info = this.psychoJS.experiment.extraInfo;
-			const participant = ((typeof info.participant === "string" && info.participant.length > 0) ? info.participant : "PARTICIPANT");
+
+			let participant = "PARTICIPANT";
+			if (typeof info.participant === "string" && info.participant.length > 0)
+			{
+				participant = info.participant;
+			}
+			if (typeof info.participantId === "string" && info.participantId.length > 0)
+			{
+				participant = info.participantId;
+			}
 			const experimentName = (typeof info.expName !== "undefined") ? info.expName : this.psychoJS.config.experiment.name;
 			const datetime = ((typeof info.date !== "undefined") ? info.date : MonotonicClock.getDateStr());
 			const filename = participant + "_" + experimentName + "_" + datetime + "_" + tag;
@@ -1108,6 +1138,13 @@ export class ServerManager extends PsychObject
 	 */
 	async uploadSurveyResponse(surveyId, surveyResponse, isComplete)
 	{
+		// no upload for mirror experiments:
+		const isMirror = this._psychoJS.serverMsg.has("__mirror") ? this._psychoJS.serverMsg.get("__mirror") : false;
+		if (isMirror)
+		{
+			return;
+		}
+
 		const response = {
 			origin: "ServerManager.uploadSurveyResponse",
 			context: `when uploading the survey response for experiment: ${this._psychoJS.config.experiment.fullpath} and survey: ${surveyId}`

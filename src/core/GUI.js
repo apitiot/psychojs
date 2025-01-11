@@ -167,22 +167,16 @@ export class GUI
 					const value = dictionary[key];
 					const keyId = "form-input-" + keyIdx;
 
-					// only create an input if the key is not in the URL:
+					// only create an input if the key is not in the URL
+					// note: we also need to deal with the option extensions
 					const cleanedDictKey = key.trim().toLowerCase();
-					const isIncluded = !(cleanedDictKey in excludedInfo);
-					/*let inUrl = false;
-					infoFromUrl.forEach((urlValue, urlKey) =>
+					let isIncluded = !(cleanedDictKey in excludedInfo);
+					if (isIncluded && (cleanedDictKey.slice(-4) === "|req" || cleanedDictKey.slice(-4) === "|cfg" || cleanedDictKey.slice(-4) === "|fix" || cleanedDictKey.slice(-4) === "|opt"))
 					{
-						const cleanedUrlKey = urlKey.trim().toLowerCase();
-						if (cleanedUrlKey === cleanedDictKey)
-						{
-							inUrl = true;
-							// break;
-						}
-					});*/
+						isIncluded = !(cleanedDictKey.slice(0, -4) in excludedInfo);
+					}
 
 					if (isIncluded)
-					// if (!inUrl)
 					{
 						atLeastOneIncludedKey = true;
 

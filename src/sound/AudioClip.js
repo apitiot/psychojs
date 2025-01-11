@@ -128,6 +128,13 @@ export class AudioClip extends PsychObject
 	 */
 	upload()
 	{
+		// no uploading for mirror experiments:
+		const isMirror = this._psychoJS.serverMsg.has("__mirror") ? this._psychoJS.serverMsg.get("__mirror") : false;
+		if (isMirror)
+		{
+			return;
+		}
+		
 		this._psychoJS.logger.debug("request to upload the audio clip to pavlovia.org");
 
 		// add a format-dependent audio extension to the name:

@@ -11,6 +11,7 @@ import {PsychObject} from "../util/PsychObject.js";
 import {PsychoJS} from "../core/PsychoJS.js";
 import {ExperimentHandler} from "./ExperimentHandler.js";
 import {MonotonicClock} from "../util/index.js";
+import * as util from "../util/Util.js";
 
 import A11yDialog from "a11y-dialog";
 import * as firebaseApp from "firebase/app";
@@ -856,6 +857,22 @@ export class Protocol extends PsychObject
 				if (cmd === "MOUSE_EVENT")
 				{
 					const mouseEvent = JSON.parse(args);
+
+					// convert the mouse position:
+					// TODO deal with the other possible window units:
+					if (this._psychoJS.window.units === "height")
+					{
+						const minSize = Math.min(this._psychoJS.window.size[0], this._psychoJS.window.size[1]);
+						mouseEvent.pos = [
+							this._psychoJS.window.size[0]/2.0 + mouseEvent.pos[0] * minSize,
+							this._psychoJS.window.size[1]/2.0 + mouseEvent.pos[1] * minSize
+						];
+						// mouseEvent.pos = [
+						// 	this._psychoJS.window.size[0]/2.0 + mouseEvent.pos[0] * this._psychoJS.window.size[0],
+						// 	this._psychoJS.window.size[1]/2.0 + mouseEvent.pos[1] * this._psychoJS.window.size[1]
+						// ];
+					}
+
 					this._psychoJS.eventManager.triggerMouseEvent(mouseEvent);
 				}
 			}
@@ -870,6 +887,12 @@ export class Protocol extends PsychObject
 				if (action === "START_SCHEDULER")
 				{
 					this.logMessage('{"event": "START_SCHEDULER"}');
+					return;
+				}
+
+				if (action === "STOP_SCHEDULER")
+				{
+					this.logMessage('{"event": "STOP_SCHEDULER"}');
 					return;
 				}
 
@@ -896,10 +919,24 @@ export class Protocol extends PsychObject
 				{
 					if (typeof mouseInfo !== "undefined")
 					{
+						// convert the mouse position:
+						let relPos = [0.0, 0.0];
+
+						// TODO deal with the other possible window units:
+						if (this._psychoJS.window.units === "height")
+						{
+							const minSize = Math.min(this._psychoJS.window.size[0], this._psychoJS.window.size[1]);
+							relPos = [
+								(mouseInfo.pos[0] - this._psychoJS.window.size[0]/2.0) / minSize,
+								(mouseInfo.pos[1] - this._psychoJS.window.size[1]/2.0) / minSize
+							];
+							// relPos = [(mouseInfo.pos[0] - this._psychoJS.window.size[0]/2.0) / this._psychoJS.window.size[0], (mouseInfo.pos[1] - this._psychoJS.window.size[1]/2.0) / this._psychoJS.window.size[1]];
+						}
+
 						const prunedMouseInfo = {
 							event: "MOUSE_EVENT",
 							type: mouseInfo.type,
-							pos: mouseInfo.pos,
+							pos: relPos,
 							wheelRel: mouseInfo.wheelRel,
 							buttons: {
 								pressed: mouseInfo.buttons.pressed,

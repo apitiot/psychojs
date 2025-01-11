@@ -145,17 +145,17 @@ export class Scheduler
 	 */
 	start()
 	{
-		// trigger the schedule callback:
+		// trigger the scheduler callback:
 		this._taskCallback("START_SCHEDULER", undefined);
 
-		let shedulerResolve;
+		let schedulerResolve;
 		const update = async (timestamp) =>
 		{
 			// quit if need be:
 			if (this._quitAtNextUpdate)
 			{
 				this._status = Scheduler.Status.STOPPED;
-				shedulerResolve();
+				schedulerResolve();
 				return;
 			}
 
@@ -166,7 +166,7 @@ export class Scheduler
 			if (state === Scheduler.Event.QUIT)
 			{
 				this._status = Scheduler.Status.STOPPED;
-				shedulerResolve();
+				schedulerResolve();
 				return;
 			}
 
@@ -188,7 +188,7 @@ export class Scheduler
 		// return a promise resolved when the scheduler is stopped:
 		return new Promise((resolve, _) =>
 		{
-			shedulerResolve = resolve;
+			schedulerResolve = resolve;
 		});
 	}
 
@@ -199,6 +199,9 @@ export class Scheduler
 	 */
 	stop()
 	{
+		// trigger the scheduler callback:
+		this._taskCallback("STOP_SCHEDULER", undefined);
+
 		this._status = Scheduler.Status.STOPPED;
 		this._quitAtNextTask = true;
 		this._quitAtNextUpdate = true;

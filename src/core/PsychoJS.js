@@ -392,7 +392,7 @@ export class PsychoJS
 			// if the experiment is running on the server:
 			if (this.getEnvironment() === ExperimentHandler.Environment.SERVER)
 			{
-				// open a session:
+				// get the various session parameters:
 				this._sessionParams = {};
 				if (this._serverMsg.has("__pilotToken"))
 				{
@@ -411,74 +411,80 @@ export class PsychoJS
 					this._sessionParams.surveyId = surveyId;
 					this._surveyId = surveyId;
 				}
-				await this._serverManager.openSession(this._sessionParams);
+				this._isMirror = this._serverMsg.has("__mirror") ? this._serverMsg.get("__mirror") : false;
 
-				// warn the user when they attempt to close the tab or browser:
-				this.beforeunloadCallback = (event) =>
+				// open a session:
+				if (!this._isMirror)
 				{
-					// preventDefault should ensure that the user gets prompted:
-					event.preventDefault();
+					await this._serverManager.openSession(this._sessionParams);
 
-					// Chrome requires returnValue to be set:
-					event.returnValue = "";
-				};
-				window.addEventListener("beforeunload", this.beforeunloadCallback);
-
-				// when the user closes the tab or browser, we attempt to close the session,
-				// optionally save the results, and release the WebGL context
-				// note: we communicate with the server using the Beacon API
-				const self = this;
-				window.addEventListener("unload", (event) =>
-				{
-					if (self._config.session.status === "OPEN")
+					// warn the user when they attempt to close the tab or browser:
+					this.beforeunloadCallback = (event) =>
 					{
-						// stop the regular uploading of results, if need be:
-						if (self._config.experiment.resultsUpload.intervalId > 0)
+						// preventDefault should ensure that the user gets prompted:
+						event.preventDefault();
+
+						// Chrome requires returnValue to be set:
+						event.returnValue = "";
+					};
+					window.addEventListener("beforeunload", this.beforeunloadCallback);
+
+					// when the user closes the tab or browser, we attempt to close the session,
+					// optionally save the results, and release the WebGL context
+					// note: we communicate with the server using the Beacon API
+					const self = this;
+					window.addEventListener("unload", (event) =>
+					{
+						if (self._config.session.status === "OPEN")
 						{
-							clearInterval(self._config.experiment.resultsUpload.intervalId);
-							self._config.experiment.resultsUpload.intervalId = -1;
+							// stop the regular uploading of results, if need be:
+							if (self._config.experiment.resultsUpload.intervalId > 0)
+							{
+								clearInterval(self._config.experiment.resultsUpload.intervalId);
+								self._config.experiment.resultsUpload.intervalId = -1;
+							}
+
+							// save the incomplete results if need be:
+							if (self._config.experiment.saveIncompleteResults && self._saveResults)
+							{
+								// note: we set lastUploadTimestamp to undefined to prevent uploadData from throttling this call
+								delete self._config.experiment.resultsUpload.lastUploadTimestamp;
+								self._experiment.save({
+									sync: true
+								});
+							}
+
+							// close the session:
+							this._sessionParams.isCompleted = false;
+							self._serverManager.closeSession(this._sessionParams, true);
 						}
 
-						// save the incomplete results if need be:
-						if (self._config.experiment.saveIncompleteResults && self._saveResults)
+						if (typeof self._window !== "undefined")
 						{
-							// note: we set lastUploadTimestamp to undefined to prevent uploadData from throttling this call
-							delete self._config.experiment.resultsUpload.lastUploadTimestamp;
-							self._experiment.save({
-								sync: true
-							});
+							self._window.close();
 						}
 
-						// close the session:
-						this._sessionParams.isCompleted = false;
-						self._serverManager.closeSession(this._sessionParams, true);
-					}
+						// disconnect the participant from the protocol, if need be:
+						if (typeof self._sessionParams.protocolId !== "undefined")
+						{
+							this._protocol.disconnectParticipant();
+						}
+					});
 
-					if (typeof self._window !== "undefined")
+					// upload the data at regular interval, if need be:
+					if (self._saveResults && self._config.experiment.resultsUpload.period > 0)
 					{
-						self._window.close();
+						self._config.experiment.resultsUpload.intervalId = setInterval(() =>
+							{
+								self._experiment.save({
+									tag: "",
+									clear: false
+								});
+							},
+							self._config.experiment.resultsUpload.period * 60 * 1000
+						);
 					}
-
-					// disconnect the participant from the protocol, if need be:
-					if (typeof self._sessionParams.protocolId !== "undefined")
-					{
-						this._protocol.disconnectParticipant();
-					}
-				});
-
-				// upload the data at regular interval, if need be:
-				if (self._saveResults && self._config.experiment.resultsUpload.period > 0)
-				{
-					self._config.experiment.resultsUpload.intervalId = setInterval(() =>
-					{
-						self._experiment.save({
-							tag: "",
-							clear: false
-						});
-					},
-					self._config.experiment.resultsUpload.period * 60 * 1000
-					);
-				}
+				} // if not mirror
 			}
 
 			// start the asynchronous download of resources:
@@ -616,101 +622,104 @@ export class PsychoJS
 			// stop the main scheduler:
 			this._scheduler.stop();
 
-			// remove the beforeunload listener:
-			if (isServerEnv)
+			if (!this._isMirror)
 			{
-				window.removeEventListener("beforeunload", this.beforeunloadCallback);
-			}
-
-			// stop the regular uploading of results, if need be:
-			if (this._config.experiment.resultsUpload.intervalId > 0)
-			{
-				clearInterval(this._config.experiment.resultsUpload.intervalId);
-				this._config.experiment.resultsUpload.intervalId = -1;
-			}
-			delete this._config.experiment.resultsUpload.lastUploadTimestamp;
-
-			// save the results and the logs of the experiment:
-			this.gui.finishDialog({
-				text: "Terminating the experiment. Please wait a few moments...",
-				nbSteps: ((this._saveResults) ? 2 : 0) + ((isServerEnv) ? 1 : 0)
-			});
-
-			if (isCompleted || this._config.experiment.saveIncompleteResults)
-			{
-				if (this._saveResults)
+				// remove the beforeunload listener:
+				if (isServerEnv)
 				{
-					this.gui.finishDialogNextStep("saving results");
-					await this._experiment.save();
-					this.gui.finishDialogNextStep("saving logs");
-					await this._logger.flush();
+					window.removeEventListener("beforeunload", this.beforeunloadCallback);
 				}
-			}
 
-			// close the session:
-			if (isServerEnv)
-			{
-				this.gui.finishDialogNextStep("closing the session");
-				this._sessionParams.isCompleted = isCompleted;
-				await this._serverManager.closeSession(this._sessionParams);
-			}
-
-			// thank participant for waiting, and either quit or redirect:
-			const onTerminate = () =>
-			{
-				if (closeWindow)
+				// stop the regular uploading of results, if need be:
+				if (this._config.experiment.resultsUpload.intervalId > 0)
 				{
-					// close the window:
-					this._window.close();
+					clearInterval(this._config.experiment.resultsUpload.intervalId);
+					this._config.experiment.resultsUpload.intervalId = -1;
+				}
+				delete this._config.experiment.resultsUpload.lastUploadTimestamp;
 
-					// remove everything from the browser window:
-					while (document.body.hasChildNodes())
+				// save the results and the logs of the experiment:
+				this.gui.finishDialog({
+					text: "Terminating the experiment. Please wait a few moments...",
+					nbSteps: ((this._saveResults) ? 2 : 0) + ((isServerEnv) ? 1 : 0)
+				});
+
+				if (isCompleted || this._config.experiment.saveIncompleteResults)
+				{
+					if (this._saveResults)
 					{
-						document.body.removeChild(document.body.lastChild);
+						this.gui.finishDialogNextStep("saving results");
+						await this._experiment.save();
+						this.gui.finishDialogNextStep("saving logs");
+						await this._logger.flush();
 					}
 				}
 
-				// return from fullscreen if we were there:
-				this._window.closeFullScreen();
-
-				// disconnect the participant from the protocol, if need be:
-				if (typeof this._sessionParams.protocolId !== "undefined")
+				// close the session:
+				if (isServerEnv)
 				{
-					this._protocol.disconnectParticipant();
+					this.gui.finishDialogNextStep("closing the session");
+					this._sessionParams.isCompleted = isCompleted;
+					await this._serverManager.closeSession(this._sessionParams);
 				}
 
-				this.status = PsychoJS.Status.FINISHED;
-
-				// redirect if redirection URLs have been provided:
-				if (isCompleted && typeof this._completionUrl !== "undefined")
+				// thank participant for waiting, and either quit or redirect:
+				const onTerminate = () =>
 				{
-					window.location = this._completionUrl;
-				}
-				else if (!isCompleted && typeof this._cancellationUrl !== "undefined")
-				{
-					window.location = this._cancellationUrl;
-				}
+					if (closeWindow)
+					{
+						// close the window:
+						this._window.close();
 
-				// close the browser tab, if requested:
-				if (closeBrowserTab)
-				{
-					window.close();
-				}
-			};
+						// remove everything from the browser window:
+						while (document.body.hasChildNodes())
+						{
+							document.body.removeChild(document.body.lastChild);
+						}
+					}
 
-			if (showOK)
-			{
-				const defaultMsg = "Thank you for your patience. Goodbye!";
-				const text = (typeof message !== "undefined") ? message : defaultMsg;
-				this._gui.dialog({
-					message: text,
-					onOK: onTerminate
-				});
-			}
-			else
-			{
-				this._gui.closeDialog();
-				onTerminate();
+					// return from fullscreen if we were there:
+					this._window.closeFullScreen();
+
+					// disconnect the participant from the protocol, if need be:
+					if (typeof this._sessionParams.protocolId !== "undefined")
+					{
+						this._protocol.disconnectParticipant();
+					}
+
+					this.status = PsychoJS.Status.FINISHED;
+
+					// redirect if redirection URLs have been provided:
+					if (isCompleted && typeof this._completionUrl !== "undefined")
+					{
+						window.location = this._completionUrl;
+					}
+					else if (!isCompleted && typeof this._cancellationUrl !== "undefined")
+					{
+						window.location = this._cancellationUrl;
+					}
+
+					// close the browser tab, if requested:
+					if (closeBrowserTab)
+					{
+						window.close();
+					}
+				};
+
+				if (showOK)
+				{
+					const defaultMsg = "Thank you for your patience. Goodbye!";
+					const text = (typeof message !== "undefined") ? message : defaultMsg;
+					this._gui.dialog({
+						message: text,
+						onOK: onTerminate
+					});
+				}
+				else
+				{
+					this._gui.closeDialog();
+					onTerminate();
+				}
 			}
 		}
 		catch (error)
