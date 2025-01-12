@@ -776,7 +776,7 @@ export class Protocol extends PsychObject
 	{
 		const response = {
 			origin: "Protocol._setupFirebaseLink",
-			context: "when setting up a linkg with the Firebase Realtime database"
+			context: "when setting up a link with the Firebase Realtime database"
 		};
 		this._psychoJS.logger.debug("when setting up a two-way link with the Firebase Realtime database");
 
@@ -856,7 +856,7 @@ export class Protocol extends PsychObject
 			{
 				if (cmd === "MOUSE_EVENT")
 				{
-					const mouseEvent = JSON.parse(args['msg']);
+					const mouseEvent = JSON.parse(args);
 
 					// convert the mouse position:
 					// TODO deal with the other possible window units:
@@ -899,6 +899,7 @@ export class Protocol extends PsychObject
 				if (action === "START_TASK")
 				{
 					this.logMessage(`${action} ${task}`);
+					this.logMirrorMessage(`{"event": "START_TASK", "task":"${task}"}`);
 					return;
 				}
 
