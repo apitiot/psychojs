@@ -856,7 +856,7 @@ export class Protocol extends PsychObject
 			{
 				if (cmd === "MOUSE_EVENT")
 				{
-					const mouseEvent = JSON.parse(args);
+					const mouseEvent = JSON.parse(args['msg']);
 
 					// convert the mouse position:
 					// TODO deal with the other possible window units:
@@ -944,7 +944,7 @@ export class Protocol extends PsychObject
 							}
 						};
 
-						this.logMessage(JSON.stringify(prunedMouseInfo));
+						this.logMirrorMessage(JSON.stringify(prunedMouseInfo));
 					}
 				}
 			);
@@ -1119,6 +1119,39 @@ export class Protocol extends PsychObject
 			const sanitizedPath = this._psychoJS.config.experiment.fullpath.replace("/", "|");
 			const fullPath = `${this._participant.firebaseRef}/log/${sanitizedPath}`;
 			await firebaseRT.push(
+				firebaseRT.ref(this._firebase.database, fullPath),
+				{
+					'time': MonotonicClock.getDateStr(),
+					'msg': msg
+				}
+			);
+		}
+		catch(error)
+		{
+			throw {...response, error};
+		}
+	}
+
+	/**
+	 * Log a mirror message, to be broadcast to the mirror experiment.
+	 *
+	 * @param msg	- the message to be logged
+	 */
+	async logMirrorMessage(msg)
+	{
+		const response = {
+			origin: "Protocol.logMirrorMessage",
+			context: `when logging mirror message: "${msg}"`
+		};
+		this._psychoJS.logger.debug(`log mirror message: "${msg}"`);
+
+		// TODO check that a participant is connected
+
+		try
+		{
+			const sanitizedPath = this._psychoJS.config.experiment.fullpath.replace("/", "|");
+			const fullPath = `${this._participant.firebaseRef}/mirror/${sanitizedPath}`;
+			await firebaseRT.set(
 				firebaseRT.ref(this._firebase.database, fullPath),
 				{
 					'time': MonotonicClock.getDateStr(),

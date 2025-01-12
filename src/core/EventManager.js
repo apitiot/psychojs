@@ -245,7 +245,7 @@ export class EventManager
 			self._mouseInfo.pos = [touches[0].pageX, touches[0].pageY];
 
 			this._psychoJS.experimentLogger.data("Mouse: " + event.button + " button down, pos=(" + self._mouseInfo.pos[0] + "," + self._mouseInfo.pos[1] + ")");
-			self._eventCallback(undefined, {...self._mouseInfo, type: "touchstart"});
+			// self._eventCallback(undefined, {...self._mouseInfo, type: "touchstart"});
 		}, false);
 
 		renderer.view.addEventListener("pointerup", (event) =>
@@ -285,7 +285,7 @@ export class EventManager
 			self._mouseInfo.pos = [touches[0].pageX, touches[0].pageY];
 
 			this._psychoJS.experimentLogger.data("Mouse: " + event.button + " button up, pos=(" + self._mouseInfo.pos[0] + "," + self._mouseInfo.pos[1] + ")");
-			self._eventCallback(undefined, {...self._mouseInfo, type: "touchend"});
+			// self._eventCallback(undefined, {...self._mouseInfo, type: "touchend"});
 		}, false);
 
 		renderer.view.addEventListener("pointermove", (event) =>
