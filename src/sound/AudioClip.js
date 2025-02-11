@@ -134,7 +134,7 @@ export class AudioClip extends PsychObject
 		{
 			return;
 		}
-		
+
 		this._psychoJS.logger.debug("request to upload the audio clip to pavlovia.org");
 
 		// add a format-dependent audio extension to the name:

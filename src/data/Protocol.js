@@ -849,7 +849,7 @@ export class Protocol extends PsychObject
 			// mark a participant response as correct or incorrect:
 			if (cmd === "MARK_RESPONSE")
 			{
-				experiment.addData('assessor.mark', args);
+				experiment.addData('marker', args);
 			}
 
 			if (this._isMirror)
@@ -899,7 +899,7 @@ export class Protocol extends PsychObject
 				if (action === "START_TASK")
 				{
 					this.logMessage(`${action} ${task}`);
-					this.logMirrorMessage(`{"event": "START_TASK", "task":"${task}"}`);
+					// this.logMirrorMessage(`{"event": "START_TASK", "task":"${task}"}`);
 					return;
 				}
 
