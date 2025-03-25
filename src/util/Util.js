@@ -351,6 +351,10 @@ export function shuffle(array, randomNumberGenerator = undefined, startIndex = u
 	{
 		randomNumberGenerator = Math.random;
 	}
+	else if (randomNumberGenerator === "seedrandom_0")
+	{
+		randomNumberGenerator = seedrandom(0);
+	}
 
 	for (let i = endIndex; i > startIndex; i--)
 	{

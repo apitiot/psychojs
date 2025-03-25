@@ -43,6 +43,36 @@ export class KeyPress
  */
 export class Keyboard extends PsychObject
 {
+	// we keep track of all Keyboard instances:
+	static _keyboardInstances = [];
+
+	// callback triggered whenever a keyboard event occurs:
+	static _eventCallback = (keyEvent) =>
+	{
+		// [do nothing]
+	};
+
+
+	/**
+	 * Callback triggered whenever a keyboard event occurs.
+	 *
+	 * @callback EventCallback
+	 * @param {object} keyEvent
+	 * @return {void}
+	 */
+	/**
+	 * Set the callback triggered when a keyboard event occurs.
+	 *
+	 * @param {EventCallback} eventCallback - the callback
+	 * @returns {void}
+	 */
+	static setEventCallback(eventCallback)
+	{
+		Keyboard._eventCallback = eventCallback;
+	}
+
+
+
 	/**
 	 * @memberof module:core
 	 * @param {Object} options
@@ -80,6 +110,9 @@ export class Keyboard extends PsychObject
 
 		// add key listeners:
 		this._addKeyListeners();
+
+		// add this Keyboard instance to the central keyboard instance repository:
+		Keyboard._keyboardInstances.push(this);
 	}
 
 	/**
@@ -338,7 +371,9 @@ export class Keyboard extends PsychObject
 				return;
 			}
 
-			const timestamp = MonotonicClock.getReferenceTime(); // timestamp in seconds
+			// TODO replace the below with triggerKeyEvent(Keyboard.KeyStatus.KEY_DOWN, event.key, event.code, event.keyCode)
+
+			const timestamp = MonotonicClock.getReferenceTime();
 
 			if (this._status !== PsychoJS.Status.STARTED)
 			{
@@ -383,6 +418,14 @@ export class Keyboard extends PsychObject
 
 			self._psychoJS.logger.trace("keydown: ", event.key);
 
+			Keyboard._eventCallback({
+				event: "KEYBOARD_EVENT",
+				keyStatus: Symbol.keyFor(Keyboard.KeyStatus.KEY_DOWN),
+				eventKey: event.key,
+				eventCode: event.code,
+				eventKeyCode: event.keyCode
+			});
+
 			event.stopPropagation();
 		});
 
@@ -390,6 +433,8 @@ export class Keyboard extends PsychObject
 		window.addEventListener("keyup", (event) =>
 		// document.addEventListener("keyup", (event) =>
 		{
+			// TODO replace the below with triggerKeyEvent(Keyboard.KeyStatus.KEY_UP, event.key, event.code, event.keyCode)
+
 			const timestamp = MonotonicClock.getReferenceTime(); // timestamp in seconds
 
 			if (this._status !== PsychoJS.Status.STARTED)
@@ -433,8 +478,82 @@ export class Keyboard extends PsychObject
 
 			self._psychoJS.logger.trace("keyup: ", event.key);
 
+			Keyboard._eventCallback({
+				event: "KEYBOARD_EVENT",
+				keyStatus: Symbol.keyFor(Keyboard.KeyStatus.KEY_UP),
+				eventKey: event.key,
+				eventCode: event.code,
+				eventKeyCode: event.keyCode
+			});
+
 			event.stopPropagation();
 		});
+	}
+
+	/**
+	 * Trigger and process a key event, for all instances of a Keyboard.
+	 *
+	 * @param keyStatus
+	 * @param eventKey
+	 * @param eventCode
+	 * @param eventKeyCode
+	 */
+	static triggerKeyEvent(keyStatus, eventKey, eventCode, eventKeyCode)
+	{
+		const timestamp = MonotonicClock.getReferenceTime();
+
+		for (const keyboard of Keyboard._keyboardInstances)
+		{
+			keyboard._previousKeydownKey = eventKey;
+
+			// Note: we are using event.key since we are interested in the input character rather than
+			// the physical key position on the keyboard, i.e. we need to take into account the keyboard
+			// layout
+			// See https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/code for a comment regarding
+			// event.code's lack of suitability
+			let code = EventManager._pygletMap[eventKey];
+			// let code = event.code;
+
+			// take care of legacy Microsoft browsers (IE11 and pre-Chromium Edge):
+			if (typeof code === "undefined")
+			{
+				code = EventManager.keycode2w3c(eventKeyCode);
+			}
+
+			const pigletKey = EventManager.w3c2pyglet(code);
+
+			keyboard._bufferIndex = (keyboard._bufferIndex + 1) % keyboard._bufferSize;
+			keyboard._bufferLength = Math.min(keyboard._bufferLength + 1, keyboard._bufferSize);
+			keyboard._circularBuffer[keyboard._bufferIndex] = {
+				code,
+				key: eventKey,
+				pigletKey,
+				status: keyStatus,
+				timestamp,
+			};
+
+			if (keyStatus === Keyboard.KeyStatus.KEY_DOWN)
+			{
+				keyboard._unmatchedKeydownMap.set(eventCode, keyboard._bufferIndex);
+
+				keyboard._psychoJS.logger.trace("keydown: ", eventKey);
+			}
+
+			else if (keyStatus === Keyboard.KeyStatus.KEY_UP)
+			{
+				// get the corresponding keydown event
+				// note: if more keys are down than there are slots in the circular buffer, there might
+				// not be a corresponding keydown event
+				const correspondingKeydownIndex = keyboard._unmatchedKeydownMap.get(eventCode);
+				if (typeof correspondingKeydownIndex !== "undefined")
+				{
+					keyboard._circularBuffer[keyboard._bufferIndex].keydownIndex = correspondingKeydownIndex;
+					keyboard._unmatchedKeydownMap.delete(eventCode);
+				}
+
+				keyboard._psychoJS.logger.trace("keyup: ", event.key);
+			}
+		}
 	}
 }
 

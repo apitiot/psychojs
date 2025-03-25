@@ -9,6 +9,7 @@
 
 import {PsychObject} from "../util/PsychObject.js";
 import {PsychoJS} from "../core/PsychoJS.js";
+import {Keyboard} from "../core/Keyboard.js";
 import {ExperimentHandler} from "./ExperimentHandler.js";
 import {MonotonicClock} from "../util/index.js";
 import * as util from "../util/Util.js";
@@ -798,6 +799,7 @@ export class Protocol extends PsychObject
 			if (cmd === "RUN")
 			{
 				this.run();
+				return;
 			}
 
 			// update participant variables:
@@ -806,6 +808,7 @@ export class Protocol extends PsychObject
 				// TODO check for JSON parsing errors
 				const variable = JSON.parse(args);
 				this._participant.variables[variable.key] = variable;
+				return;
 			}
 
 			// restart protocol or experiment:
@@ -844,12 +847,14 @@ export class Protocol extends PsychObject
 			if (cmd === "START_EXPERIMENT")
 			{
 				// TODO
+				return;
 			}
 
 			// mark a participant response as correct or incorrect:
 			if (cmd === "MARK_RESPONSE")
 			{
 				experiment.addData('marker', args);
+				return;
 			}
 
 			if (this._isMirror)
@@ -874,7 +879,29 @@ export class Protocol extends PsychObject
 					}
 
 					this._psychoJS.eventManager.triggerMouseEvent(mouseEvent);
+					return;
 				}
+
+				if (cmd === "KEYBOARD_EVENT")
+				{
+					const keyEvent = JSON.parse(args);
+
+					Keyboard.triggerKeyEvent(
+						Symbol.for(keyEvent.keyStatus),
+						keyEvent.eventKey,
+						keyEvent.eventCode,
+						keyEvent.eventKeyCode
+					);
+					return;
+				}
+
+				// // start a task
+				// if (cmd === "START_TASK")
+				// {
+				// 	// TODO
+				// 	return;
+				// }
+
 			}
 		});
 
@@ -893,6 +920,10 @@ export class Protocol extends PsychObject
 				if (action === "STOP_SCHEDULER")
 				{
 					this.logMessage('{"event": "STOP_SCHEDULER"}');
+
+					// empty the mirror message:
+					this.logMirrorMessage("");
+
 					return;
 				}
 
@@ -949,6 +980,16 @@ export class Protocol extends PsychObject
 					}
 				}
 			);
+
+			// add a Keyboard callback:
+			Keyboard.setEventCallback((keyEvent) =>
+				{
+					this.logMirrorMessage(JSON.stringify(keyEvent));
+				}
+			);
+
+			// empty the mirror message:
+			this.logMirrorMessage("");
 		}
 	}
 
