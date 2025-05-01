@@ -1000,13 +1000,18 @@ export class Protocol extends PsychObject
 	 */
 	async _streamScreen()
 	{
+/*
+		// - approach #1: stream the screen
+		// note: does not work on mobile devices
+		// TODO check for errors
+
 		// if the peer is not already set-up, do so:
 		if (!this._peer)
 		{
 			// note: we use the participant's firebase ref as basis for peer ids:
 			const strippedRef = this._participant.firebaseRef.split("/")[2].substring(1);
 			const participantPeerId = `${strippedRef}-participant`;
-			const protocolConsolePeerId = `${strippedRef}-console`;
+			const protocolDashboardPeerId = `${strippedRef}-dashboard`;
 
 			// prepare a PeerJS connection:
 			this._peer = new Peer(participantPeerId);
@@ -1036,10 +1041,50 @@ export class Protocol extends PsychObject
 			this._screenStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
 
 			// call the protocol console and stream the user-selected screen/window/tab:
-			this._peerCall = this._peer.call(protocolConsolePeerId, this._screenStream);
+			this._peerCall = this._peer.call(protocolDashboardPeerId, this._screenStream);
 
-			// TODO check for errors
+			// this._peerConnection = this._peer.connect(protocolDashboardPeerId);
+			// this._peerConnection.on("open", () =>
+			// {
+			// 	this.logMessage("The PeerJS connection to the protocol dashboard is open.");
+			//
+			// 	this._peerConnection.send("Ahoy there!");
+			// });
 		}
+*/
+
+		// approach #2: capture snapshot of PixiJS canvas and send via Firebase
+		// TODO check for errors
+		const window = this._psychoJS.window;
+		const takeScreenshot = async (args) =>
+		{
+			// set the root container position to (0, 0):
+			const rootPos = window._rootContainer.position.clone();
+			window._rootContainer.position.set(0, 0);
+
+			// window._fullRefresh();
+
+			// take a screenshot as a JPEG image:
+			// const img = await window._renderer.plugins.extract.image(window._rootContainer, "image/jpeg", 0.5);
+			const img = await window._renderer.plugins.extract.base64(window._rootContainer, "image/jpeg", 0.5);
+
+			// restore the root container position:
+			window._rootContainer.position.copyFrom(rootPos);
+
+			// send the image via the Firebase Realtime database:
+			await this.logMirrorMessage(img);
+		};
+		window.callOnFlip(takeScreenshot, {});
+
+		/*
+				const url = await window._renderer.plugins.extract.base64(window._rootContainer);
+				//const url = await window._renderer.extract.base64(window._stimsContainer); //_rootContainer);
+				window._rootContainer.position.copyFrom(rootPos);
+				const img = new Image();
+				img.src = url;
+				document.body.appendChild(img);
+		*/
+
 	}
 
 	/**
@@ -1185,7 +1230,7 @@ export class Protocol extends PsychObject
 			origin: "Protocol.logMirrorMessage",
 			context: `when logging mirror message: "${msg}"`
 		};
-		this._psychoJS.logger.debug(`log mirror message: "${msg}"`);
+		this._psychoJS.logger.debug(`log mirror message: "${msg.substring(0, 100)}"`);
 
 		// TODO check that a participant is connected
 
