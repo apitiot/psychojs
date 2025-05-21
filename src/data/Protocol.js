@@ -1058,6 +1058,12 @@ export class Protocol extends PsychObject
 	 */
 	async shareSnapshot()
 	{
+		// As of 2025-05-13, this is deactivated. We are now using Microsoft Surface Tablet, the sharing of
+		// the patient screen is handled through Zoom.
+		return;
+
+
+
 		// TODO check for errors
 		const window = this._psychoJS.window;
 
