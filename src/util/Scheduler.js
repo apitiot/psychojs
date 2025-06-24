@@ -231,7 +231,8 @@ export class Scheduler
 	 * Jump to the task with the given index in to task list.
 	 *
 	 * @note The current routine will terminate normally.
-	 * @param taskIndex
+	 * @param {number} taskIndex - the index of the task in the task list
+	 * @return {void}
 	 */
 	jump(taskIndex)
 	{
@@ -272,7 +273,7 @@ export class Scheduler
 			// if there is no current task, we look for the next one in the list or quit if there is none:
 			if (typeof this._currentTask === "undefined")
 			{
-				++ this._taskIndex;
+				++this._taskIndex;
 
 				// a task is available in the taskList:
 				if (this._taskIndex < this._taskList.length)

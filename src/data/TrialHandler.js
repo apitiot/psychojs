@@ -45,7 +45,7 @@ export class TrialHandler extends PsychObject
 	 * @param {Object} options.extraInfo - additional information to be stored alongside the trial data, e.g. session ID, participant ID, etc.
 	 * @param {number} options.seed - seed for the random number generator
 	 * @param {boolean} [options.autoLog= false] - whether or not to log
-	 *
+	 * @param {util.Scheduler} scheduler - the scheduler to which the routines will be added
 	 * @todo extraInfo is not taken into account, we use the expInfo of the ExperimentHandler instead
 	 */
 	constructor({
@@ -56,6 +56,7 @@ export class TrialHandler extends PsychObject
 		extraInfo = [],
 		seed,
 		name,
+		scheduler,
 		autoLog = true,
 	} = {})
 	{
@@ -66,6 +67,7 @@ export class TrialHandler extends PsychObject
 		this._addAttribute("method", method);
 		this._addAttribute("extraInfo", extraInfo);
 		this._addAttribute("name", name);
+		this._addAttribute("scheduler", scheduler);
 		this._addAttribute("autoLog", autoLog);
 		this._addAttribute("seed", seed);
 		this._prepareTrialList();
@@ -204,15 +206,15 @@ export class TrialHandler extends PsychObject
 	 * @property {number} thisTrialN - the current trial number within the current repeat
 	 * @property {number} thisN - the total number of trials completed so far
 	 * @property {number} thisIndex - the index of the current trial in the conditions list
-	 * @property {number} ran - whether or not the trial ran
-	 * @property {number} finished - whether or not the trials finished
+	 * @property {number} ran - whether the trial ran
+	 * @property {number} finished - whether the trials finished
 	 * @property {Object} trialAttributes - a list of trial attributes
 	 */
 	/**
 	 * Get a snapshot of the current internal state of the trial handler (e.g. current trial number,
 	 * number of trial remaining).
 	 *
-	 * <p>This is typically used in the LoopBegin function, in order to capture the current state of a TrialHandler</p>
+	 * <p>This is typically used in the XxxLoopBegin function, in order to capture the current state of a TrialHandler</p>
 	 *
 	 * @return {Snapshot} - a snapshot of the current internal state.
 	 */
@@ -261,7 +263,7 @@ export class TrialHandler extends PsychObject
 		this._snapshots.push(snapshot);
 
 		// associate the current task index of the scheduler to thisN, so we can potentially jump to it:
-		this._scheduleTaskIndices.set(this.thisN, this.psychoJS.scheduler._taskIndex);
+		this._scheduleTaskIndices.set(this.thisN, this._scheduler._taskList.length);
 
 		return snapshot;
 	}
@@ -449,21 +451,7 @@ export class TrialHandler extends PsychObject
 	 */
 	getEarlierTrial(n = -1)
 	{
-		return getFutureTrial(-abs(n));
-	}
-
-	/**
-	 * Add a key/value pair to data about the current trial held by the experiment handler
-	 *
-	 * @param {Object} key - the key
-	 * @param {Object} value - the value
-	 */
-	addData(key, value)
-	{
-		if (this._experimentHandler)
-		{
-			this._experimentHandler.addData(key, value);
-		}
+		return this.getFutureTrial(-Math.abs(n));
 	}
 
 	rewindTrials(n)
@@ -473,6 +461,7 @@ export class TrialHandler extends PsychObject
 			context: `when rewinding by ${n} trial(s)`
 		};
 
+		// nothing to do if n = 0:
 		if (n === 0)
 		{
 			return;
@@ -489,7 +478,21 @@ export class TrialHandler extends PsychObject
 
 		// jump to the task scehduled at the start of the desired trial:
 		const schedulerTaskIndex = this._scheduleTaskIndices.get(this.thisN - n);
-		this.psychoJS.scheduler.jump(schedulerTaskIndex);
+		this._scheduler.jump(schedulerTaskIndex);
+	}
+
+	/**
+	 * Add a key/value pair to data about the current trial held by the experiment handler
+	 *
+	 * @param {Object} key - the key
+	 * @param {Object} value - the value
+	 */
+	addData(key, value)
+	{
+		if (this._experimentHandler)
+		{
+			this._experimentHandler.addData(key, value);
+		}
 	}
 
 	/**
