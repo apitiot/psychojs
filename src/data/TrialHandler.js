@@ -97,6 +97,9 @@ export class TrialHandler extends PsychObject
 		// array of current snapshots:
 		this._snapshots = [];
 
+		// map: thisN -> scheduler task index:
+		this._scheduleTaskIndices = new Map();
+
 		// setup the trial sequence:
 		this._prepareSequence();
 
@@ -233,7 +236,7 @@ export class TrialHandler extends PsychObject
 			getCurrentTrial: () => this.getTrial(currentIndex),
 			getTrial: (index = 0) => this.getTrial(index),
 
-			addData: (key, value) => this.addData(key, value),
+			addData: (key, value) => this.addData(key, value)
 		};
 
 		// add to the snapshots the current trial's attributes:
@@ -256,6 +259,9 @@ export class TrialHandler extends PsychObject
 
 		// add the snapshot to the list:
 		this._snapshots.push(snapshot);
+
+		// associate the current task index of the scheduler to thisN, so we can potentially jump to it:
+		this._scheduleTaskIndices.set(this.thisN, this.psychoJS.scheduler._taskIndex);
 
 		return snapshot;
 	}
@@ -335,7 +341,7 @@ export class TrialHandler extends PsychObject
 	/**
 	 * Setter for the finished attribute.
 	 *
-	 * @param {boolean} isFinished - whether or not the loop is finished.
+	 * @param {boolean} isFinished - whether the loop is finished.
 	 */
 	set finished(isFinished)
 	{
@@ -458,6 +464,32 @@ export class TrialHandler extends PsychObject
 		{
 			this._experimentHandler.addData(key, value);
 		}
+	}
+
+	rewindTrials(n)
+	{
+		const response = {
+			origin: "TrialHandler.rewindTrials",
+			context: `when rewinding by ${n} trial(s)`
+		};
+
+		if (n === 0)
+		{
+			return;
+		}
+
+		// make sure that the number of trials is positive:
+		n = Math.abs(n);
+
+		// check that we can actually rewind by that many trials:
+		if (n > this.thisN)
+		{
+			throw {...response, error: `unable to rewind back by more than ${this.thisN} trial(s)`};
+		}
+
+		// jump to the task scehduled at the start of the desired trial:
+		const schedulerTaskIndex = this._scheduleTaskIndices.get(this.thisN - n);
+		this.psychoJS.scheduler.jump(schedulerTaskIndex);
 	}
 
 	/**

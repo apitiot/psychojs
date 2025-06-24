@@ -44,6 +44,7 @@ export class Scheduler
 		this._currentArgs = undefined;
 		this._nameList = [];
 		this._currentName = undefined;
+		this._taskIndex = -1;
 
 		this._quitAtNextUpdate = false;
 		this._quitAtNextTask = false;
@@ -227,6 +228,28 @@ export class Scheduler
 	}
 
 	/**
+	 * Jump to the task with the given index in to task list.
+	 *
+	 * @note The current routine will terminate normally.
+	 * @param taskIndex
+	 */
+	jump(taskIndex)
+	{
+		const response = {
+			origin: "Scheduler.jump",
+			context: `when jumping to the task with index: ${taskIndex}`
+		};
+
+		// check that we can actually jump to that task:
+		if (taskIndex < 0 || taskIndex > this._taskList.length - 1)
+		{
+			throw {...response, error: `unable to jump to a task outside of [0. ${this._taskList.length - 1}]`};
+		}
+
+		this._taskIndex = taskIndex;
+	}
+
+	/**
 	 * Run the next scheduled tasks, in sequence, until a rendering of the scene is requested.
 	 *
 	 * @name Scheduler#_runNextTasks
@@ -249,6 +272,26 @@ export class Scheduler
 			// if there is no current task, we look for the next one in the list or quit if there is none:
 			if (typeof this._currentTask === "undefined")
 			{
+				++ this._taskIndex;
+
+				// a task is available in the taskList:
+				if (this._taskIndex < this._taskList.length)
+				{
+					this._currentTask = this._taskList[this._taskIndex];
+					this._currentArgs = this._argsList[this._taskIndex];
+					this._currentName = this._nameList[this._taskIndex];
+
+					this._taskCallback("START_TASK", this._currentName);
+				}
+				// we have reached the end of the taskList: we quit
+				else
+				{
+					this._currentTask = undefined;
+					this._currentArgs = undefined;
+					this._currentName = undefined;
+					return Scheduler.Event.QUIT;
+				}
+	/* DEPRECATED APPROACH (does not allow for moving up and down the task list)
 				// a task is available in the taskList:
 				if (this._taskList.length > 0)
 				{
@@ -266,6 +309,7 @@ export class Scheduler
 					this._currentName = undefined;
 					return Scheduler.Event.QUIT;
 				}
+*/
 			}
 			else
 			{

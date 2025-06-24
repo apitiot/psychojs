@@ -138,6 +138,20 @@ export class Sound extends PsychObject
 	 */
 	setVolume(volume, mute = false, log = true)
 	{
+		if (typeof volume === "string")
+		{
+			volume = Number.parseFloat(volume);
+		}
+
+		if (volume < 0.0 || volume > 1.0)
+		{
+			throw {
+				origin: "Sound.setVolume",
+				context: "when setting the sound volume",
+				error: `the volume should be in [0.0, 1.0], instead got: ${volume}`
+			};
+		}
+
 		this._setAttribute("volume", volume, log);
 
 		if (typeof this._player !== "undefined")

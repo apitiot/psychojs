@@ -857,6 +857,12 @@ export class Protocol extends PsychObject
 				return;
 			}
 
+			if (cmd === "REWIND")
+			{
+				const scheduler_args = JSON.parse(args);
+				this._psychoJS.scheduler.rewind(scheduler_args.nb_tasks);
+			}
+
 			if (this._isMirror)
 			{
 				if (cmd === "MOUSE_EVENT")
@@ -907,6 +913,7 @@ export class Protocol extends PsychObject
 
 		if (!this._isMirror)
 		{
+/* UPDATE: as of 2025-05, Max Sims does not believe it is necessary to log any of the bellow
 			// add a scheduler callback:
 			this._psychoJS.scheduler.setTaskCallback( (action, task) =>
 			{
@@ -936,6 +943,7 @@ export class Protocol extends PsychObject
 
 				console.log(action, task);
 			});
+*/
 
 			// add an experiment data callback:
 			if (this._psychoJS.experiment)

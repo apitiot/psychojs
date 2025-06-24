@@ -485,22 +485,22 @@ export class PsychoJS
 						);
 					}
 				} // if not mirror
+
+				// setup a protocol and connect the participant to it, if need be:
+				if (typeof this._sessionParams.protocolId !== "undefined")
+				{
+					this._protocol = new Protocol({
+						psychoJS: this,
+						expInfo
+					});
+
+					// connect the participant to the protocol:
+					await this._protocol.connectParticipant();
+				}
 			}
 
 			// start the asynchronous download of resources:
 			this._serverManager.prepareResources(resources);
-
-			// setup a protocol and connect the participant to it, if need be:
-			if (typeof this._sessionParams.protocolId !== "undefined")
-			{
-				this._protocol = new Protocol({
-					psychoJS: this,
-					expInfo
-				});
-
-				// connect the participant to the protocol:
-				await this._protocol.connectParticipant();
-			}
 
 			// if WebGL is not actually available, warn the participant and ask them whether they want to go ahead
 			if (this._checkWebGLSupport && !Window.checkWebGLSupport())
