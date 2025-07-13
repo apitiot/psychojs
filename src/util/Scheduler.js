@@ -49,6 +49,9 @@ export class Scheduler
 		this._quitAtNextUpdate = false;
 		this._quitAtNextTask = false;
 
+		this._scheduledJumpTag = "";
+		this._scheduledJumpTaskIndex = -1;
+
 		// callback triggered whenever a new task is run by the scheduler:
 		this._taskCallback = (key, value) =>
 		{
@@ -230,7 +233,8 @@ export class Scheduler
 	/**
 	 * Jump to the task with the given index in to task list.
 	 *
-	 * @note The current routine will terminate normally.
+	 * @note The current task will terminate normally.
+	 *
 	 * @param {number} taskIndex - the index of the task in the task list
 	 * @return {void}
 	 */
@@ -247,7 +251,35 @@ export class Scheduler
 			throw {...response, error: `unable to jump to a task outside of [0. ${this._taskList.length - 1}]`};
 		}
 
-		this._taskIndex = taskIndex;
+		// note: -1 because _runNextTasks will do ++this._taskIndex
+		this._taskIndex = taskIndex - 1;
+	}
+
+	/**
+	 * Schedule a jump to the task with the given index in to task list.
+	 *
+	 * The current task will terminate normally. The jump will occur at the next task with the
+	 * given tag.
+	 *
+	 * @param {string} tag - the tag of the task at which to jump
+	 * @param {number} taskIndex - the index of the task in the task list
+	 * @return {void}
+	 */
+	scheduleJump(tag, taskIndex)
+	{
+		const response = {
+			origin: "Scheduler.scheduleJump",
+			context: `when scheduling a jump to the task with index: ${taskIndex} at the next task with tag: ${tag}`
+		};
+
+		// check that we can actually jump to that task:
+		if (taskIndex < 0 || taskIndex > this._taskList.length - 1)
+		{
+			throw {...response, error: `unable to jump to a task outside of [0. ${this._taskList.length - 1}]`};
+		}
+
+		this._scheduledJumpTag = tag;
+		this._scheduledJumpTaskIndex = taskIndex;
 	}
 
 	/**
@@ -338,6 +370,27 @@ export class Scheduler
 					if (!this._psychoJS.experiment.experimentEnded)
 					{
 						state = Scheduler.Event.NEXT;
+					}
+				}
+			}
+
+			// if a jump has been scheduled:
+			if (this._scheduledJumpTag.length > 0)
+			{
+				// check whether the current task has the required tag:
+				for (const arg of this._currentArgs)
+				{
+					if ("@tag" in arg)
+					{
+						const tag = arg["@tag"];
+						if (tag === this._scheduledJumpTag)
+						{
+							// note: -1 since we will do a ++ this._taskIndex in the next iteration of this loop
+							this._taskIndex = this._scheduledJumpTaskIndex - 1;
+							this._scheduledJumpTag = "";
+						}
+
+						break;
 					}
 				}
 			}

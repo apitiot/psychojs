@@ -263,7 +263,10 @@ export class TrialHandler extends PsychObject
 		this._snapshots.push(snapshot);
 
 		// associate the current task index of the scheduler to thisN, so we can potentially jump to it:
-		this._scheduleTaskIndices.set(this.thisN, this._scheduler._taskList.length);
+		if (typeof this._scheduler !== "undefined")
+		{
+			this._scheduleTaskIndices.set(this.thisN, this._scheduler._taskList.length);
+		}
 
 		return snapshot;
 	}
@@ -439,7 +442,7 @@ export class TrialHandler extends PsychObject
 			return undefined;
 		}
 
-		return this.trialList[this.thisIndex + n];
+		return this.trialList[this.thisN + n];
 	}
 
 	/**
@@ -454,6 +457,11 @@ export class TrialHandler extends PsychObject
 		return this.getFutureTrial(-Math.abs(n));
 	}
 
+	/**
+	 * Rewind back by a number of trials
+	 *
+	 * @param {number} n - the number of trials to rewind.
+	 */
 	rewindTrials(n)
 	{
 		const response = {
@@ -461,10 +469,10 @@ export class TrialHandler extends PsychObject
 			context: `when rewinding by ${n} trial(s)`
 		};
 
-		// nothing to do if n = 0:
-		if (n === 0)
+		// check that a scheduler has been passed to the trial's constructor:
+		if (typeof this._scheduler === "undefined")
 		{
-			return;
+			throw { ...response, error: "a scheduler has not been passed to the trial's constructor"};
 		}
 
 		// make sure that the number of trials is positive:
@@ -476,9 +484,40 @@ export class TrialHandler extends PsychObject
 			throw {...response, error: `unable to rewind back by more than ${this.thisN} trial(s)`};
 		}
 
-		// jump to the task scehduled at the start of the desired trial:
+		// schedule a jump to the task scheduled at the start of the desired trial:
 		const schedulerTaskIndex = this._scheduleTaskIndices.get(this.thisN - n);
-		this._scheduler.jump(schedulerTaskIndex);
+		this._scheduler.scheduleJump("RoutineEnd", schedulerTaskIndex);
+	}
+
+	/**
+	 *
+	 * @param {number} n - the number of trials to skip
+	 */
+	skipTrials(n)
+	{
+		const response = {
+			origin: "TrialHandler.skipTrials",
+			context: `when skipping by ${n} trial(s)`
+		};
+
+		// check that a scheduler has been passed to the trial's constructor:
+		if (typeof this._scheduler === "undefined")
+		{
+			throw { ...response, error: "a scheduler has not been passed to the trial's constructor"};
+		}
+
+		// make sure that the number of trials is positive:
+		n = Math.abs(n);
+
+		// check that we can actually skip by that many trials:
+		if (n > this.nRemaining)
+		{
+			throw {...response, error: `unable to skip forward by more than ${this.nRemaining} trial(s)`};
+		}
+
+		// jump to the task scheduled at the start of the desired trial:
+		const schedulerTaskIndex = this._scheduleTaskIndices.get(this.thisN + n);
+		this._scheduler.scheduleJump("RoutineEnd", schedulerTaskIndex);
 	}
 
 	/**

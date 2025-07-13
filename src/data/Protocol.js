@@ -857,58 +857,76 @@ export class Protocol extends PsychObject
 				return;
 			}
 
-			if (cmd === "REWIND")
+			if (cmd === "REWIND_TRIAL")
 			{
 				const scheduler_args = JSON.parse(args);
-				this._psychoJS.scheduler.rewind(scheduler_args.nb_tasks);
+
+				if (this._psychoJS.experiment._loops.length > 0)
+				{
+					const currentLoop = this._psychoJS.experiment._loops[this._psychoJS.experiment._loops.length - 1];
+					currentLoop.rewindTrials(scheduler_args.nb_trials);
+				}
 			}
 
-			if (this._isMirror)
+			if (cmd === "SKIP_TRIAL")
 			{
-				if (cmd === "MOUSE_EVENT")
-				{
-					const mouseEvent = JSON.parse(args);
+				const scheduler_args = JSON.parse(args);
 
-					// convert the mouse position:
-					// TODO deal with the other possible window units:
-					if (this._psychoJS.window.units === "height")
+				if (this._psychoJS.experiment._loops.length > 0)
+				{
+					const currentLoop = this._psychoJS.experiment._loops[this._psychoJS.experiment._loops.length - 1];
+					currentLoop.skipTrials(scheduler_args.nb_trials);
+				}
+			}
+
+/* UPDATE: as of 2025-07, we are not dealing with mouse and keyboard mirror event since the mirror approach has been discontinued
+			if (this._isMirror)
+				{
+					if (cmd === "MOUSE_EVENT")
 					{
-						const minSize = Math.min(this._psychoJS.window.size[0], this._psychoJS.window.size[1]);
-						mouseEvent.pos = [
-							this._psychoJS.window.size[0]/2.0 + mouseEvent.pos[0] * minSize,
-							this._psychoJS.window.size[1]/2.0 + mouseEvent.pos[1] * minSize
-						];
-						// mouseEvent.pos = [
-						// 	this._psychoJS.window.size[0]/2.0 + mouseEvent.pos[0] * this._psychoJS.window.size[0],
-						// 	this._psychoJS.window.size[1]/2.0 + mouseEvent.pos[1] * this._psychoJS.window.size[1]
-						// ];
+						const mouseEvent = JSON.parse(args);
+
+						// convert the mouse position:
+						// TODO deal with the other possible window units:
+						if (this._psychoJS.window.units === "height")
+						{
+							const minSize = Math.min(this._psychoJS.window.size[0], this._psychoJS.window.size[1]);
+							mouseEvent.pos = [
+								this._psychoJS.window.size[0]/2.0 + mouseEvent.pos[0] * minSize,
+								this._psychoJS.window.size[1]/2.0 + mouseEvent.pos[1] * minSize
+							];
+							// mouseEvent.pos = [
+							// 	this._psychoJS.window.size[0]/2.0 + mouseEvent.pos[0] * this._psychoJS.window.size[0],
+							// 	this._psychoJS.window.size[1]/2.0 + mouseEvent.pos[1] * this._psychoJS.window.size[1]
+							// ];
+						}
+
+						this._psychoJS.eventManager.triggerMouseEvent(mouseEvent);
+						return;
 					}
 
-					this._psychoJS.eventManager.triggerMouseEvent(mouseEvent);
-					return;
+					if (cmd === "KEYBOARD_EVENT")
+					{
+						const keyEvent = JSON.parse(args);
+
+						Keyboard.triggerKeyEvent(
+							Symbol.for(keyEvent.keyStatus),
+							keyEvent.eventKey,
+							keyEvent.eventCode,
+							keyEvent.eventKeyCode
+						);
+						return;
+					}
+
+					// // start a task
+					// if (cmd === "START_TASK")
+					// {
+					// 	// TODO
+					// 	return;
+					// }
+
 				}
-
-				if (cmd === "KEYBOARD_EVENT")
-				{
-					const keyEvent = JSON.parse(args);
-
-					Keyboard.triggerKeyEvent(
-						Symbol.for(keyEvent.keyStatus),
-						keyEvent.eventKey,
-						keyEvent.eventCode,
-						keyEvent.eventKeyCode
-					);
-					return;
-				}
-
-				// // start a task
-				// if (cmd === "START_TASK")
-				// {
-				// 	// TODO
-				// 	return;
-				// }
-
-			}
+	*/
 		});
 
 		if (!this._isMirror)
@@ -954,6 +972,7 @@ export class Protocol extends PsychObject
 				});
 			}
 
+	/* UPDATE: as of 2025-07, we are not sending mouse and keyboard event since the mirror approach has been discontinued
 			// add an event manager callback:
 			this._psychoJS.eventManager.setEventCallback((keyEvent, mouseInfo) =>
 				{
@@ -995,10 +1014,11 @@ export class Protocol extends PsychObject
 					this.logMirrorMessage(JSON.stringify(keyEvent));
 				}
 			);
-
+*/
 			// empty the mirror message:
 			this.logMirrorMessage("");
 		}
+
 	}
 
 	/**

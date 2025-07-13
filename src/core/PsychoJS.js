@@ -682,7 +682,8 @@ export class PsychoJS
 					this._window.closeFullScreen();
 
 					// disconnect the participant from the protocol, if need be:
-					if (typeof this._sessionParams.protocolId !== "undefined")
+					const isServerEnv = (this.getEnvironment() === ExperimentHandler.Environment.SERVER);
+					if (isServerEnv && typeof this._sessionParams.protocolId !== "undefined")
 					{
 						this._protocol.disconnectParticipant();
 					}
