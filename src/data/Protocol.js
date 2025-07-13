@@ -968,7 +968,17 @@ export class Protocol extends PsychObject
 			{
 				this._psychoJS.experiment.setDataCallback((key, value) =>
 				{
-					this.logMessage(`USER_DATA ${key}: ${value}`);
+					this.logMessage(`{"event":"USER_DATA", "key": "${key}", "value": ${JSON.stringify(value)}`);
+				});
+				this._psychoJS.setImportAttributesCallback((obj) =>
+				{
+					if ("ResponseOptions" in obj)
+					{
+						this.logMessage(JSON.stringify({
+							event: "RESPONSE_OPTIONS",
+							responseOptions: obj["ResponseOptions"]
+						}));
+					}
 				});
 			}
 

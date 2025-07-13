@@ -191,6 +191,12 @@ export class PsychoJS
 		// whether to save results at the end of the experiment:
 		this._saveResults = saveResults;
 
+		// callback triggered whenever attributes are imported:
+		this._importCallback = (obj) =>
+		{
+			// [do nothing]
+		};
+
 		this.logger.info("[PsychoJS] Version 2024.3.0");
 		this.logger.info("[PsychoJS] Initialised.");
 
@@ -592,6 +598,26 @@ export class PsychoJS
 		{
 			window[attribute] = obj[attribute];
 		}
+
+		this._importCallback(obj);
+	}
+
+	/**
+	 * Callback triggered whenever attributes are imported.
+	 *
+	 * @callback ImportCallback
+	 * @param {object} obj
+	 * @return {void}
+	 */
+	/**
+	 * Set the callback triggered when attributes are imported.
+	 *
+	 * @param {ImportCallback} importCallback - the callback
+	 * @returns {void}
+	 */
+	setImportAttributesCallback(importCallback)
+	{
+		this._importCallback = importCallback;
 	}
 
 	/**
