@@ -21,6 +21,38 @@ import * as util from "../util/Util.js";
 export class TrialHandler extends PsychObject
 {
 	/**
+	 * Callback triggered throughout the handler's life cycle, e.g. when the trials have been scheduled,
+	 * 	upon calls to from Snapshot
+	 * @param {module:data.TrialHandler} handler - the handler that triggered the callback
+	 * @param {string} event - the callback event
+	 * @return {void}
+	 * @protected
+	 */
+	static _trialCallback(handler, event)
+	{
+		// [do nothing]
+	}
+
+	/**
+	 * Callback triggered whenever new data is added.
+	 *
+	 * @callback TrialCallback
+	 * @param {module:data.TrialHandler} handler - the handler that triggered the callback
+	 * @param {string} event - the callback event
+	 * @return {void}
+	 */
+	/**
+	 * Set the callback triggered when the scheduler starts a new task..
+	 *
+	 * @param {TrialCallback} trialCallback - the callback
+	 * @returns {void}
+	 */
+	static setTrialCallback(trialCallback)
+	{
+		TrialHandler._trialCallback = trialCallback;
+	}
+
+	/**
 	 * Getter for experimentHandler.
 	 */
 	get experimentHandler()

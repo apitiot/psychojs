@@ -18,6 +18,7 @@ import A11yDialog from "a11y-dialog";
 import * as firebaseApp from "firebase/app";
 import * as firebaseRT from "firebase/database";
 import * as firebaseAuth from "firebase/auth";
+import {TrialHandler} from "./TrialHandler.js";
 
 
 /**
@@ -963,13 +964,15 @@ export class Protocol extends PsychObject
 			});
 */
 
-			// add an experiment data callback:
 			if (this._psychoJS.experiment)
 			{
+				// add an experiment data callback:
 				this._psychoJS.experiment.setDataCallback((key, value) =>
 				{
 					this.logMessage(`{"event":"USER_DATA", "key": "${key}", "value": ${JSON.stringify(value)}`);
 				});
+
+				// add a importAttributes callback:
 				this._psychoJS.setImportAttributesCallback((obj) =>
 				{
 					if ("ResponseOptions" in obj)
@@ -980,6 +983,14 @@ export class Protocol extends PsychObject
 						}));
 					}
 				});
+
+				// add a TrialHandler callback:
+				TrialHandler.setTrialCallback( (handler, event) =>
+					{
+						const currentLoop = this._psychoJS.experiment._loops[this._psychoJS.experiment._loops.length - 1];
+
+					}
+				);
 			}
 
 	/* UPDATE: as of 2025-07, we are not sending mouse and keyboard event since the mirror approach has been discontinued
