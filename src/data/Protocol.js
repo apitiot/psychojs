@@ -963,24 +963,31 @@ export class Protocol extends PsychObject
 			});
 */
 
-			// add an experiment data callback:
+			// add callbacks:
 			if (this._psychoJS.experiment)
 			{
 				this._psychoJS.experiment.setDataCallback((key, value) =>
 				{
-					this.logMessage(`{"event":"USER_DATA", "key": "${key}", "value": ${JSON.stringify(value)}`);
-				});
-				this._psychoJS.setImportAttributesCallback((obj) =>
-				{
-					if ("ResponseOptions" in obj)
-					{
-						this.logMessage(JSON.stringify({
-							event: "RESPONSE_OPTIONS",
-							responseOptions: obj["ResponseOptions"]
-						}));
-					}
+					this.logMessage(`{"event":"USER_DATA", "key": "${key}", "value": ${JSON.stringify(value)}}`);
 				});
 			}
+			this._psychoJS.setImportAttributesCallback((obj) =>
+			{
+				if ("ResponseOptions" in obj)
+				{
+					this.logMessage(JSON.stringify({
+						event: "RESPONSE_OPTIONS",
+						responseOptions: obj["ResponseOptions"]
+					}));
+				}
+				else
+				{
+					this.logMessage(JSON.stringify({
+						event: "RESPONSE_OPTIONS",
+						responseOptions: ""
+					}));
+				}
+			});
 
 	/* UPDATE: as of 2025-07, we are not sending mouse and keyboard event since the mirror approach has been discontinued
 			// add an event manager callback:
@@ -1053,7 +1060,7 @@ export class Protocol extends PsychObject
 			this._peer = new Peer(participantPeerId);
 			this._peer.on('open', (id) =>
 			{
-				this.logMessage(`Prepared a PeerJS connection at id: ${participantPeerId}`);
+				this.logMessage(`{"event":"OPEN_PEERJS", "peerId": "${participantPeerId}"}`);
 			});
 
 			// prepare to capture the screen:

@@ -57,6 +57,7 @@ export class TrialHandler extends PsychObject
 		seed,
 		name,
 		scheduler,
+		trialStimulus,
 		autoLog = true,
 	} = {})
 	{
@@ -68,6 +69,7 @@ export class TrialHandler extends PsychObject
 		this._addAttribute("extraInfo", extraInfo);
 		this._addAttribute("name", name);
 		this._addAttribute("scheduler", scheduler);
+		this._addAttribute("trialStimulus", trialStimulus);
 		this._addAttribute("autoLog", autoLog);
 		this._addAttribute("seed", seed);
 		this._prepareTrialList();
@@ -108,6 +110,9 @@ export class TrialHandler extends PsychObject
 		this._experimentHandler = null;
 		this.thisTrial = null;
 		this._finished = false;
+
+		// the list of stimuli, from the first to the last trial:
+		this._trialStimuli = [];
 	}
 
 	/**
@@ -266,6 +271,18 @@ export class TrialHandler extends PsychObject
 		if (typeof this._scheduler !== "undefined")
 		{
 			this._scheduleTaskIndices.set(this.thisN, this._scheduler._taskList.length);
+		}
+
+		// if a trialStimulus has been given, collect it:
+		if (typeof this._trialStimulus != "undefined")
+		{
+			for (const attribute in currentTrial)
+			{
+				if (attribute === this._trialStimulus)
+				{
+					this._trialStimuli.push(currentTrial[attribute]);
+				}
+			}
 		}
 
 		return snapshot;
