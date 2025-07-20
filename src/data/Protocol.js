@@ -639,15 +639,18 @@ export class Protocol extends PsychObject
 
 		// prepare the url:
 		let fullUrl = `${this._psychoJS.config.pavlovia.URL}/run/${this._experimentNode.path}`;
-		// add the participantId:
+		// - add the participantId:
 		fullUrl += `?__protocolId=${this._protocol.protocolId}&__participantId=${this._participant.participantId}&participantId=${this._participant.participantId}&participantId*=${this._participant.participantId}`;
-		// add the experiment's variables:
-		for (const key in this._participant.variables)
+		// - add the experiment's variables:
+		for (const variable of this._participant.variables)
 		{
-			const variable = this._participant.variables[key];
-			fullUrl += `&${key}${(variable.required)?"*":""}=${variable.value}`;
+			// filter by experiment:
+			if (variable.experiment === this._experimentNode.path)
+			{
+				fullUrl += `&${variable.key}${(variable.required) ? "*" : ""}=${variable.value}`;
+			}
 		}
-		// add the session:
+		// - add the session:
 		fullUrl += `&session=${this._psychoJS.config.session.sessionToken}`;
 
 		window.location.href = fullUrl;
@@ -808,7 +811,9 @@ export class Protocol extends PsychObject
 			{
 				// TODO check for JSON parsing errors
 				const variable = JSON.parse(args);
-				this._participant.variables[variable.key] = variable;
+
+				// TODO this is obviously wrong: we need to impact the running experiment, and also variables is an array now
+				// this._participant.variables[variable.key] = variable;
 				return;
 			}
 
@@ -995,13 +1000,32 @@ export class Protocol extends PsychObject
 			// add a TrialHandler callback:
 			TrialHandler.setTrialCallback( (handler, event) =>
 				{
-					// const currentLoop = this._psychoJS.experiment._loops[this._psychoJS.experiment._loops.length - 1];
+					if (event === TrialHandler.Event.SCHEDULING_COMPLETED)
+					{
+						if (handler._trialStimuli.length > 0)
+						{
+							this.logMessage(JSON.stringify({
+								event: "TRIAL_STIMULI",
+								trialStimuli: handler._trialStimuli
+							}));
+						}
+					}
+
+					else if (event === TrialHandler.Event.FROM_SNAPSHOT)
+					{
+						if (handler._trialStimuli.length > 0)
+						{
+							this.logMessage(JSON.stringify({
+								event: "TRIAL_STIMULI_INDEX",
+								trialIndex: handler.thisIndex
+							}));
+						}
+					}
 
 				}
 			);
-		}
 
-	/* UPDATE: as of 2025-07, we are not sending mouse and keyboard event since the mirror approach has been discontinued
+/* UPDATE: as of 2025-07, we are not sending mouse and keyboard event since the mirror approach has been discontinued
 			// add an event manager callback:
 			this._psychoJS.eventManager.setEventCallback((keyEvent, mouseInfo) =>
 				{

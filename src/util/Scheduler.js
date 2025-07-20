@@ -324,7 +324,7 @@ export class Scheduler
 					this._currentName = undefined;
 					return Scheduler.Event.QUIT;
 				}
-	/* DEPRECATED APPROACH (does not allow for moving up and down the task list)
+/* DEPRECATED APPROACH (does not allow for moving up and down the task list)
 				// a task is available in the taskList:
 				if (this._taskList.length > 0)
 				{
@@ -388,9 +388,10 @@ export class Scheduler
 							// note: -1 since we will do a ++ this._taskIndex in the next iteration of this loop
 							this._taskIndex = this._scheduledJumpTaskIndex - 1;
 							this._scheduledJumpTag = "";
-						}
+							state = Scheduler.Event.NEXT;
 
-						break;
+							break;
+						}
 					}
 				}
 			}

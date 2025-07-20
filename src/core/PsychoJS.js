@@ -666,7 +666,7 @@ export class PsychoJS
 
 				// save the results and the logs of the experiment:
 				this.gui.finishDialog({
-					text: "Terminating the experiment. Please wait a few moments...",
+					text: "[Terminate] Please wait a moment...",
 					nbSteps: ((this._saveResults) ? 2 : 0) + ((isServerEnv) ? 1 : 0)
 				});
 

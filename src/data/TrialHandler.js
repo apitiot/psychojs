@@ -24,7 +24,7 @@ export class TrialHandler extends PsychObject
 	 * Callback triggered throughout the handler's life cycle, e.g. when the trials have been scheduled,
 	 * 	upon calls to from Snapshot
 	 * @param {module:data.TrialHandler} handler - the handler that triggered the callback
-	 * @param {string} event - the callback event
+	 * @param {module:data.TrialHandler.Event} event - the TrialHandler event
 	 * @return {void}
 	 * @protected
 	 */
@@ -38,7 +38,7 @@ export class TrialHandler extends PsychObject
 	 *
 	 * @callback TrialCallback
 	 * @param {module:data.TrialHandler} handler - the handler that triggered the callback
-	 * @param {string} event - the callback event
+	 * @param {module:data.TrialHandler.Event} event - the TrialHandler event
 	 * @return {void}
 	 */
 	/**
@@ -193,6 +193,9 @@ export class TrialHandler extends PsychObject
 				if (this.thisRepN >= this.nReps)
 				{
 					this.thisTrial = null;
+
+					TrialHandler._trialCallback(this, TrialHandler.Event.SCHEDULING_COMPLETED);
+
 					return { done: true };
 				}
 
@@ -305,8 +308,8 @@ export class TrialHandler extends PsychObject
 			this._scheduleTaskIndices.set(this.thisN, this._scheduler._taskList.length);
 		}
 
-		// if a trialStimulus has been given, collect it:
-		if (typeof this._trialStimulus != "undefined")
+		// if a trialStimulus has been given, collect the stimulus:
+		if (typeof this._trialStimulus !== "undefined")
 		{
 			for (const attribute in currentTrial)
 			{
@@ -380,6 +383,8 @@ export class TrialHandler extends PsychObject
 			value[attribute] = snapshot[attribute];
 		}
 		window[name] = value;
+
+		TrialHandler._trialCallback(snapshot.handler, TrialHandler.Event.FROM_SNAPSHOT);
 	}
 
 	/**
@@ -462,7 +467,7 @@ export class TrialHandler extends PsychObject
 	}
 
 	/**
-	 * Get the nth trial.
+	 * Get the nth trial in the trial list.
 	 *
 	 * @param {number} index - the trial index
 	 * @return {Object|undefined} the requested trial or undefined if attempting to go beyond the last trial.
@@ -535,7 +540,8 @@ export class TrialHandler extends PsychObject
 
 		// schedule a jump to the task scheduled at the start of the desired trial:
 		const schedulerTaskIndex = this._scheduleTaskIndices.get(this.thisN - n);
-		this._scheduler.scheduleJump("RoutineEnd", schedulerTaskIndex);
+		this._scheduler.scheduleJump("jump", schedulerTaskIndex);
+		// this._scheduler.scheduleJump("RoutineEnd", schedulerTaskIndex);
 	}
 
 	/**
@@ -566,7 +572,8 @@ export class TrialHandler extends PsychObject
 
 		// jump to the task scheduled at the start of the desired trial:
 		const schedulerTaskIndex = this._scheduleTaskIndices.get(this.thisN + n);
-		this._scheduler.scheduleJump("RoutineEnd", schedulerTaskIndex);
+		this._scheduler.scheduleJump("jump", schedulerTaskIndex);
+		// this._scheduler.scheduleJump("RoutineEnd", schedulerTaskIndex);
 	}
 
 	/**
@@ -858,4 +865,22 @@ TrialHandler.Method = {
 	 * Same as above, but named to reflect PsychoPy boileplate.
 	 */
 	FULLRANDOM: Symbol.for("FULL_RANDOM"),
+};
+
+/**
+ * TrialHandler events
+ *
+ * @enum {Symbol}
+ * @readonly
+ */
+TrialHandler.Event = {
+	/**
+	 * All trials have been scheduled.
+	 */
+	SCHEDULING_COMPLETED: Symbol.for("SCHEDULING_COMPLETED"),
+
+	/**
+	 * The current trial has just been updated to the snapshot of a previously scheduled trial.
+	 */
+	FROM_SNAPSHOT: Symbol.for("FROM_SNAPSHOT"),
 };
