@@ -812,8 +812,9 @@ export class Protocol extends PsychObject
 				// TODO check for JSON parsing errors
 				const variable = JSON.parse(args);
 
-				// TODO this is obviously wrong: we need to impact the running experiment, and also variables is an array now
-				// this._participant.variables[variable.key] = variable;
+				// update the ExperimentHandler's extraInfo, as it is a reference to the experiment's expInfo:
+				experiment.updateInfo(variable.key, variable.value);
+
 				return;
 			}
 

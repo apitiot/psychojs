@@ -117,6 +117,18 @@ export class ExperimentHandler extends PsychObject {
 	}
 
 	/**
+	 * Update extraInfo.
+	 *
+	 * @param key
+	 * @param value
+	 * @return {void}
+	 */
+	updateInfo(key, value)
+	{
+		this._extraInfo[key] = value;
+	}
+
+	/**
 	 * Callback triggered whenever new data is added.
 	 *
 	 * @callback DataCallback

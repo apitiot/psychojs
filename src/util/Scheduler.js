@@ -388,12 +388,14 @@ export class Scheduler
 							// note: -1 since we will do a ++ this._taskIndex in the next iteration of this loop
 							this._taskIndex = this._scheduledJumpTaskIndex - 1;
 							this._scheduledJumpTag = "";
-							state = Scheduler.Event.NEXT;
-
 							break;
 						}
 					}
 				}
+
+				// if a jump has been schedule, we leave the current task and move onto the next one,
+				// even if it is not the one with the required @tag
+				state = Scheduler.Event.NEXT;
 			}
 
 			// if the current task's return status is FLIP_REPEAT, we will re-run it, otherwise
