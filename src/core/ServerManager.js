@@ -900,7 +900,8 @@ export class ServerManager extends PsychObject
 
 					self.setStatus(ServerManager.Status.READY);
 					resolve({...response, ...uploadDataResponse});
-				} catch (error)
+				}
+				catch (error)
 				{
 					console.error(error);
 					self.setStatus(ServerManager.Status.ERROR);
