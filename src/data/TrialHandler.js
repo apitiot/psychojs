@@ -90,7 +90,8 @@ export class TrialHandler extends PsychObject
 		name,
 		scheduler,
 		trialStimulus,
-		autoLog = true,
+		trialType = "TEXT",
+		autoLog = true
 	} = {})
 	{
 		super(psychoJS);
@@ -99,11 +100,13 @@ export class TrialHandler extends PsychObject
 		this._addAttribute("nReps", nReps);
 		this._addAttribute("method", method);
 		this._addAttribute("extraInfo", extraInfo);
+		this._addAttribute("seed", seed);
 		this._addAttribute("name", name);
 		this._addAttribute("scheduler", scheduler);
 		this._addAttribute("trialStimulus", trialStimulus);
+		this._addAttribute("trialType", trialType);
 		this._addAttribute("autoLog", autoLog);
-		this._addAttribute("seed", seed);
+
 		this._prepareTrialList();
 
 		// number of stimuli
@@ -315,7 +318,10 @@ export class TrialHandler extends PsychObject
 			{
 				if (attribute === this._trialStimulus)
 				{
-					this._trialStimuli.push(currentTrial[attribute]);
+					this._trialStimuli.push({
+						type: this._trialType,
+						stimulus: currentTrial[attribute]
+					});
 				}
 			}
 		}

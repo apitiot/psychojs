@@ -38,19 +38,8 @@ export class Scheduler
 	{
 		this._psychoJS = psychoJS;
 
-		this._taskList = [];
-		this._currentTask = undefined;
-		this._argsList = [];
-		this._currentArgs = undefined;
-		this._nameList = [];
-		this._currentName = undefined;
-		this._taskIndex = -1;
-
-		this._quitAtNextUpdate = false;
-		this._quitAtNextTask = false;
-
-		this._scheduledJumpTag = "";
-		this._scheduledJumpTaskIndex = -1;
+		// reset the scheduler:
+		this.clear();
 
 		// callback triggered whenever a new task is run by the scheduler:
 		this._taskCallback = (key, value) =>
@@ -138,6 +127,27 @@ export class Scheduler
 		};
 
 		this.add(task);
+	}
+
+	/**
+	 * Empty this scheduler's task list and reset the index.
+	 * @returns {void}
+	 */
+	clear()
+	{
+		this._taskList = [];
+		this._currentTask = undefined;
+		this._argsList = [];
+		this._currentArgs = undefined;
+		this._nameList = [];
+		this._currentName = undefined;
+		this._taskIndex = -1;
+
+		this._quitAtNextUpdate = false;
+		this._quitAtNextTask = false;
+
+		this._scheduledJumpTag = "";
+		this._scheduledJumpTaskIndex = -1;
 	}
 
 	/**
@@ -231,6 +241,21 @@ export class Scheduler
 	}
 
 	/**
+	 * Show the list of scheduled tasks, mostly for debugging purposes.
+	 *
+	 * @return {void}
+	 */
+	showScheduledTasks()
+	{
+		console.log("%c[Scheduler] task list:", "color: #00AA00");
+		console.log(`taskIndex= ${this._taskIndex}`);
+		for (let t = 0; t < this._taskList.length; ++t)
+		{
+			console.log(`\t${t}: ${this._nameList[t]} ${JSON.stringify(this._argsList[t])}`);
+		}
+	}
+
+	/**
 	 * Jump to the task with the given index in to task list.
 	 *
 	 * @note The current task will terminate normally.
@@ -244,6 +269,7 @@ export class Scheduler
 			origin: "Scheduler.jump",
 			context: `when jumping to the task with index: ${taskIndex}`
 		};
+		console.log(`%c[Scheduler] jumping to task: ${taskIndex}`, "color: #00AA00");
 
 		// check that we can actually jump to that task:
 		if (taskIndex < 0 || taskIndex > this._taskList.length - 1)
@@ -271,6 +297,7 @@ export class Scheduler
 			origin: "Scheduler.scheduleJump",
 			context: `when scheduling a jump to the task with index: ${taskIndex} at the next task with tag: ${tag}`
 		};
+		console.log(`%c[Scheduler] scheduling jump to task: ${taskIndex} with tag: ${tag}`, "color: #00AA00");
 
 		// check that we can actually jump to that task:
 		if (taskIndex < 0 || taskIndex > this._taskList.length - 1)
@@ -393,7 +420,7 @@ export class Scheduler
 					}
 				}
 
-				// if a jump has been schedule, we leave the current task and move onto the next one,
+				// if a jump has been scheduled, we leave the current task and move onto the next one,
 				// even if it is not the one with the required @tag
 				state = Scheduler.Event.NEXT;
 			}

@@ -1003,6 +1003,9 @@ export class Protocol extends PsychObject
 				{
 					if (event === TrialHandler.Event.SCHEDULING_COMPLETED)
 					{
+						// show the scheduled tasks:
+						handler._scheduler.showScheduledTasks();
+
 						if (handler._trialStimuli.length > 0)
 						{
 							this.logMessage(JSON.stringify({
