@@ -1004,7 +1004,10 @@ export class Protocol extends PsychObject
 					if (event === TrialHandler.Event.SCHEDULING_COMPLETED)
 					{
 						// show the scheduled tasks:
-						handler._scheduler.showScheduledTasks();
+						if (typeof handler._scheduler !== "undefined")
+						{
+							handler._scheduler.showScheduledTasks();
+						}
 
 						if (handler._trialStimuli.length > 0)
 						{
@@ -1021,7 +1024,7 @@ export class Protocol extends PsychObject
 						{
 							this.logMessage(JSON.stringify({
 								event: "TRIAL_STIMULI_INDEX",
-								trialIndex: handler.thisIndex
+								trialIndex: handler.thisN //thisIndex
 							}));
 						}
 					}
