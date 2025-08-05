@@ -749,7 +749,7 @@ export class Protocol extends PsychObject
 		// stop streaming the screen capture, if need be:
 		this._stopStreamScreen();
 
-
+/*
 		// message the participant to terminate the protocol:
 		try
 		{
@@ -769,6 +769,7 @@ export class Protocol extends PsychObject
 			console.error(error);
 			throw {...response, error};
 		}
+*/
 	}
 
 	/**
