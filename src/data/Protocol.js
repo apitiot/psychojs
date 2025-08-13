@@ -971,6 +971,7 @@ export class Protocol extends PsychObject
 			});
 */
 
+/* UPDATE: as of 2025-08, Max Sims agrees with Alain Pitiot that logging user data is not necessary
 			if (this._psychoJS.experiment)
 			{
 				// add an experiment data callback:
@@ -979,7 +980,7 @@ export class Protocol extends PsychObject
 					this.logMessage(`{"event":"USER_DATA", "key": "${key}", "value": ${JSON.stringify(value)}}`);
 				});
 			}
-
+*/
 			// add an importAttributes callback:
 			this._psychoJS.setImportAttributesCallback((obj) =>
 			{
