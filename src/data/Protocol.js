@@ -638,7 +638,7 @@ export class Protocol extends PsychObject
 		}
 
 		// prepare the url:
-		let fullUrl = `${this._psychoJS.config.pavlovia.URL}/run/${this._experimentNode.path}`;
+		let fullUrl = `${this._psychoJS.config.pavlovia.URL}/run/${this._experimentNode.path}/index.html`;
 		// - add the participantId:
 		fullUrl += `?__protocolId=${this._protocol.protocolId}&__participantId=${this._participant.participantId}&participantId=${this._participant.participantId}&participantId*=${this._participant.participantId}`;
 		// - add the experiment's variables:
