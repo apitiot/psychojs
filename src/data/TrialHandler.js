@@ -314,17 +314,16 @@ export class TrialHandler extends PsychObject
 		// if a trialStimulus has been given, collect the stimulus:
 		if (typeof this._trialStimulus !== "undefined")
 		{
-			for (const attribute in currentTrial)
+			if (this._trialStimulus in currentTrial)
 			{
-				if (attribute === this._trialStimulus)
-				{
-					this._trialStimuli.push({
-						type: this._trialType,
-						stimulus: currentTrial[attribute]
-					});
-				}
+				this._trialStimuli.push({
+					type: this._trialType,
+					stimulus: currentTrial[this._trialStimulus]
+				});
 			}
 		}
+
+		// TODO add trialAnsweer
 
 		return snapshot;
 	}

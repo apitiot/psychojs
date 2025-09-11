@@ -1076,9 +1076,10 @@ export class Protocol extends PsychObject
 					this.logMirrorMessage(JSON.stringify(keyEvent));
 				}
 			);
-*/
+
 			// empty the mirror message:
 			this.logMirrorMessage("");
+*/
 		}
 
 	}

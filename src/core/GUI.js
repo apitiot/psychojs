@@ -682,11 +682,11 @@ export class GUI
 
 			if (signal.message === ServerManager.Event.RESOURCE_DOWNLOADED)
 			{
-				this._setProgressMessage(`downloaded ${this._progressBarCurrentValue / 2}  / ${this._progressBarMax / 2}`);
+				this._setProgressMessage(`downloaded ${Math.round(this._progressBarCurrentValue / 2)}  / ${this._progressBarMax / 2}`);
 			}
 			else
 			{
-				this._setProgressMessage(`downloading ${this._progressBarCurrentValue / 2}  / ${this._progressBarMax / 2}`);
+				this._setProgressMessage(`downloading ${Math.round(this._progressBarCurrentValue / 2)}  / ${this._progressBarMax / 2}`);
 			}
 
 			this._updateProgressBar();
