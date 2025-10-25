@@ -844,6 +844,22 @@ export class Protocol extends PsychObject
 				return;
 			}
 
+			// pause
+			if (cmd === "PAUSE")
+			{
+				this._psychoJS.scheduler.pause();
+
+				return;
+			}
+
+			// resume
+			if (cmd === "RESUME")
+			{
+				this._psychoJS.scheduler.resume();
+
+				return;
+			}
+
 			// stream the participant's screen to the protocol console:
 			if (cmd === "STREAM_SCREEN")
 			{
@@ -869,10 +885,50 @@ export class Protocol extends PsychObject
 			{
 				const scheduler_args = JSON.parse(args);
 
-				if (this._psychoJS.experiment._loops.length > 0)
+				if (this._psychoJS.experiment._unfinishedLoops.length > 0)
 				{
-					const currentLoop = this._psychoJS.experiment._loops[this._psychoJS.experiment._loops.length - 1];
-					currentLoop.rewindTrials(scheduler_args.nb_trials);
+					// if the latest loop is skippable, then we rewind trials on it:
+					let loopIndex = this._psychoJS.experiment._unfinishedLoops.length - 1;
+					const loop = this._psychoJS.experiment._unfinishedLoops[loopIndex];
+					if (loop._skippable)
+					{
+						// note: we capture errors to silence them
+						try
+						{
+							loop.rewindTrials(scheduler_args.nb_trials);
+						}
+						catch (e)
+						{
+							console.error(e);
+						}
+					}
+
+					// otherwise, we mark the associated scheduler as skipping, we rewind the loop immediately
+					// above the innermost one:
+					else if (typeof loop._scheduler !== "undefined")
+					{
+						loop._scheduler._skipping = true;
+
+						let parentLoopIndex = this._psychoJS.experiment._unfinishedLoops.length - 2;
+						const parentLoop = this._psychoJS.experiment._unfinishedLoops[parentLoopIndex];
+						loop._scheduler._finishCallback = () =>
+						{
+							// note: we capture errors to silence them
+							try
+							{
+								parentLoop.rewindTrials(scheduler_args.nb_trials);
+							}
+							catch (e)
+							{
+								console.error(e);
+							}
+						};
+					}
+				}
+				// if there is no inner loop, then we skip the current routine:
+				else
+				{
+					this._psychoJS.scheduler._skipping = true;
 				}
 			}
 
@@ -880,10 +936,43 @@ export class Protocol extends PsychObject
 			{
 				const scheduler_args = JSON.parse(args);
 
-				if (this._psychoJS.experiment._loops.length > 0)
+				if (this._psychoJS.experiment._unfinishedLoops.length > 0)
 				{
-					const currentLoop = this._psychoJS.experiment._loops[this._psychoJS.experiment._loops.length - 1];
-					currentLoop.skipTrials(scheduler_args.nb_trials);
+					// if the latest loop is skippable, then we skip trials on it:
+					let loopIndex = this._psychoJS.experiment._unfinishedLoops.length - 1;
+					const loop = this._psychoJS.experiment._unfinishedLoops[loopIndex];
+					if (loop._skippable)
+					{
+						// note: we capture errors to silence them
+						try
+						{
+							loop.skipTrials(scheduler_args.nb_trials);
+						}
+						catch (e)
+						{
+							console.error(e);
+						}
+					}
+
+					// otherwise, we mark the associated scheduler as skipping
+					else if (typeof loop._scheduler !== "undefined")
+					{
+						loop._scheduler._skipping = true;
+
+/* Note: we do not need to skip the parent, we just finish the inner loop
+						let parentLoopIndex = this._psychoJS.experiment._unfinishedLoops.length - 2;
+						const parentLoop = this._psychoJS.experiment._unfinishedLoops[parentLoopIndex];
+						loop._scheduler._finishCallback = () =>
+						{
+							parentLoop.skipTrials(scheduler_args.nb_trials);
+						};
+*/
+					}
+				}
+				// if there is no inner loop, then we skip the current routine:
+				else
+				{
+					this._psychoJS.scheduler._skipping = true;
 				}
 			}
 
@@ -939,7 +1028,30 @@ export class Protocol extends PsychObject
 
 		if (!this._isMirror)
 		{
-/* UPDATE: as of 2025-05, Max Sims does not believe it is necessary to log any of the bellow
+			// [DEBUG]
+			// add a scheduler callback:
+			this._psychoJS.scheduler.setTaskCallback( (action, task) =>
+			{
+				if (action === "START_TASK")
+				{
+					console.log(`%cSTART_TASK ${MonotonicClock.getDateStr()} ${task}`, "color: #AA8800");
+				}
+			});
+
+			// add a addData callback:
+			if (this._psychoJS.experiment)
+			{
+				this._psychoJS.experiment.setDataCallback((key, value) =>
+				{
+					// UPDATE: as of 2025-08, Max Sims agrees with Alain Pitiot that logging user data is not necessary in general, so we have restricted it to Score:
+					if (key === "Score")
+					{
+						this.logMessage(`{"event":"USER_DATA", "key": "${key}", "value": ${JSON.stringify(value)}}`);
+					}
+				});
+			}
+
+
 			// add a scheduler callback:
 			this._psychoJS.scheduler.setTaskCallback( (action, task) =>
 			{
@@ -954,33 +1066,23 @@ export class Protocol extends PsychObject
 				{
 					this.logMessage('{"event": "STOP_SCHEDULER"}');
 
-					// empty the mirror message:
-					this.logMirrorMessage("");
+					// // empty the mirror message:
+					// this.logMirrorMessage("");
 
 					return;
 				}
 
+/* UPDATE: as of 2025-05, Max Sims does not believe it is necessary to log any of the bellow
 				if (action === "START_TASK")
 				{
 					this.logMessage(`${action} ${task}`);
 					// this.logMirrorMessage(`{"event": "START_TASK", "task":"${task}"}`);
 					return;
 				}
-
+*/
 				console.log(action, task);
 			});
-*/
 
-/* UPDATE: as of 2025-08, Max Sims agrees with Alain Pitiot that logging user data is not necessary
-			if (this._psychoJS.experiment)
-			{
-				// add an experiment data callback:
-				this._psychoJS.experiment.setDataCallback((key, value) =>
-				{
-					this.logMessage(`{"event":"USER_DATA", "key": "${key}", "value": ${JSON.stringify(value)}}`);
-				});
-			}
-*/
 			// add an importAttributes callback:
 			this._psychoJS.setImportAttributesCallback((obj) =>
 			{

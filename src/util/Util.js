@@ -634,7 +634,7 @@ export function toString(object)
 		return "undefined";
 	}
 
-	if (!object)
+	if (object === null)
 	{
 		return "null";
 	}

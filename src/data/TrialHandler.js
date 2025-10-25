@@ -90,7 +90,9 @@ export class TrialHandler extends PsychObject
 		name,
 		scheduler,
 		trialStimulus,
+		trialAnswer,
 		trialType = "TEXT",
+		skippable = true,
 		autoLog = true
 	} = {})
 	{
@@ -104,7 +106,9 @@ export class TrialHandler extends PsychObject
 		this._addAttribute("name", name);
 		this._addAttribute("scheduler", scheduler);
 		this._addAttribute("trialStimulus", trialStimulus);
+		this._addAttribute("trialAnswer", trialAnswer);
 		this._addAttribute("trialType", trialType);
+		this._addAttribute("skippable", skippable);
 		this._addAttribute("autoLog", autoLog);
 
 		this._prepareTrialList();
@@ -316,14 +320,20 @@ export class TrialHandler extends PsychObject
 		{
 			if (this._trialStimulus in currentTrial)
 			{
-				this._trialStimuli.push({
+				const stimulus = {
 					type: this._trialType,
 					stimulus: currentTrial[this._trialStimulus]
-				});
+				};
+
+				// optional answer:
+				if (typeof this._trialAnswer !== "undefined" && this._trialAnswer in currentTrial)
+				{
+					stimulus['answer'] = currentTrial[this._trialAnswer];
+				}
+
+				this._trialStimuli.push(stimulus);
 			}
 		}
-
-		// TODO add trialAnsweer
 
 		return snapshot;
 	}

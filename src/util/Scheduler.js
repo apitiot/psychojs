@@ -47,6 +47,15 @@ export class Scheduler
 			// [do nothing]
 		};
 
+		// whether this scheduler is current skipping:
+		this._skipping = false;
+
+		// the callback triggered when the scheduler finishes:
+		this._finishCallback = () =>
+		{
+			// [do nothing]
+		};
+
 		this._status = Scheduler.Status.STOPPED;
 	}
 
@@ -159,6 +168,8 @@ export class Scheduler
 	 */
 	start()
 	{
+		this._status = Scheduler.Status.RUNNING;
+
 		// trigger the scheduler callback:
 		this._taskCallback("START_SCHEDULER", undefined);
 
@@ -174,14 +185,17 @@ export class Scheduler
 			}
 
 			// run the next scheduled tasks until a scene render is requested:
-			const state = await this._runNextTasks();
-
-			// quit if need be:
-			if (state === Scheduler.Event.QUIT)
+			if (this._status === Scheduler.Status.RUNNING)
 			{
-				this._status = Scheduler.Status.STOPPED;
-				schedulerResolve();
-				return;
+				const state = await this._runNextTasks();
+
+				// quit if need be:
+				if (state === Scheduler.Event.QUIT)
+				{
+					this._status = Scheduler.Status.STOPPED;
+					schedulerResolve();
+					return;
+				}
 			}
 
 			// store frame delta for `Window.getActualFrameRate()`
@@ -219,6 +233,32 @@ export class Scheduler
 		this._status = Scheduler.Status.STOPPED;
 		this._quitAtNextTask = true;
 		this._quitAtNextUpdate = true;
+	}
+
+	/**
+	 * Pause this scheduler.
+	 *
+	 * @return {void}
+	 */
+	pause()
+	{
+		// trigger the scheduler callback:
+		this._taskCallback("PAUSE_SCHEDULER", undefined);
+
+		this._status = Scheduler.Status.PAUSED;
+	}
+
+	/**
+	 * Resume this scheduler.
+	 *
+	 * @return {void}
+	 */
+	resume()
+	{
+		// trigger the scheduler callback:
+		this._taskCallback("RESUME_SCHEDULER", undefined);
+
+		this._status = Scheduler.Status.RUNNING;
 	}
 
 	/**
@@ -318,8 +358,6 @@ export class Scheduler
 	 */
 	async _runNextTasks()
 	{
-		this._status = Scheduler.Status.RUNNING;
-
 		let state = Scheduler.Event.NEXT;
 		while (state === Scheduler.Event.NEXT)
 		{
@@ -349,6 +387,11 @@ export class Scheduler
 					this._currentTask = undefined;
 					this._currentArgs = undefined;
 					this._currentName = undefined;
+					this._skipping = false;
+
+					await this._finishCallback();
+					this._finishCallback = () => {};
+
 					return Scheduler.Event.QUIT;
 				}
 /* DEPRECATED APPROACH (does not allow for moving up and down the task list)
@@ -381,6 +424,24 @@ export class Scheduler
 			if (this._currentTask instanceof Function)
 			{
 				state = await this._currentTask(...this._currentArgs);
+
+				// if the current trial handler is skipping, we skip to the next task,
+				// even if the state returned by the task is not NEXT, unless we have reached
+				// the end of the routine
+				for (const arg of this._currentArgs)
+				{
+					if (typeof arg !== "undefined" && arg["@tag"] === "end")
+					{
+						this._skipping = false;
+						break;
+					}
+				}
+
+				if (this._skipping)
+				{
+					console.log(`%c[Scheduler] skipping to the next task`, "color: #00AA00");
+					state = Scheduler.Event.NEXT;
+				}
 			}
 			// otherwise, we assume that the current task is a scheduler, and we run its tasks until a rendering
 			// of the scene is required.
@@ -478,6 +539,11 @@ Scheduler.Status = {
 	 * The Scheduler is running.
 	 */
 	RUNNING: Symbol.for("RUNNING"),
+
+	/**
+	 * The Scheduler is paused.
+	 */
+	PAUSED: Symbol.for("PAUSED"),
 
 	/**
 	 * The Scheduler is stopped.
