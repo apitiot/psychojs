@@ -31,6 +31,14 @@
 export class Scheduler
 {
 	/**
+	 * The scheduler running the current task, i.e. the task which is currently "flip-repeating".
+	 *
+	 * @type {null}
+	 * @private
+	 */
+	static _currentScheduler = null;
+
+	/**
 	 * @memberof module:util
 	 * @param {module:core.PsychoJS} psychoJS - the PsychoJS instance
 	 */
@@ -425,6 +433,11 @@ export class Scheduler
 			{
 				state = await this._currentTask(...this._currentArgs);
 
+				if (state === Scheduler.Event.FLIP_REPEAT)
+				{
+					Scheduler._currentScheduler = this;
+				}
+
 				// if the current trial handler is skipping, we skip to the next task,
 				// even if the state returned by the task is not NEXT, unless we have reached
 				// the end of the routine
@@ -452,6 +465,7 @@ export class Scheduler
 				this._currentTask.setTaskCallback(this._taskCallback);
 
 				state = await this._currentTask._runNextTasks();
+
 				if (state === Scheduler.Event.QUIT)
 				{
 					// if the experiment has not ended, we move onto the next task:

@@ -11,6 +11,7 @@ import {PsychObject} from "../util/PsychObject.js";
 import {PsychoJS} from "../core/PsychoJS.js";
 import {Keyboard} from "../core/Keyboard.js";
 import {ExperimentHandler} from "./ExperimentHandler.js";
+import {Scheduler} from "../util/Scheduler.js";
 import {MonotonicClock} from "../util/index.js";
 import * as util from "../util/Util.js";
 
@@ -972,7 +973,11 @@ export class Protocol extends PsychObject
 				// if there is no inner loop, then we skip the current routine:
 				else
 				{
-					this._psychoJS.scheduler._skipping = true;
+					// TODO replace with Scheduler.skipCurrentScheduler()
+					if (Scheduler._currentScheduler)
+					{
+						Scheduler._currentScheduler._skipping = true;
+					}
 				}
 			}
 

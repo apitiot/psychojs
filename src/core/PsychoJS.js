@@ -481,13 +481,13 @@ export class PsychoJS
 					if (self._saveResults && self._config.experiment.resultsUpload.period > 0)
 					{
 						self._config.experiment.resultsUpload.intervalId = setInterval(() =>
-							{
-								self._experiment.save({
-									tag: "",
-									clear: false
-								});
-							},
-							self._config.experiment.resultsUpload.period * 60 * 1000
+						{
+							self._experiment.save({
+								tag: "",
+								clear: false
+							});
+						},
+						self._config.experiment.resultsUpload.period * 60 * 1000
 						);
 					}
 				} // if not mirror

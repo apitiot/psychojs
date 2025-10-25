@@ -752,21 +752,24 @@ export function getUrlParameters()
 	const urlQuery = window.location.search.slice(1);
 	return new URLSearchParams(urlQuery);
 
-	/*let urlMap = new Map();
+	/*
+	let urlMap = new Map();
 	for (const entry of urlParameters)
 		urlMap.set(entry[0], entry[1])
 
-	return urlMap;*/
+	return urlMap;
+	*/
 }
 
 /**
  * Add info extracted from the URL to the given dictionary.
  *
  * @note If excludeServerMsgs=true, we exclude all URL parameters starting with a double underscore
- * since those are reserved for client/server communication
+ * since those are reserved for client/server communication.
  *
- * @param {Object} info 											- the dictionary
- * @param {boolean} [excludeServerMsgs=true]	- whether to exclude server messages
+ * @param {Object} info - the dictionary
+ * @param {boolean} [excludeServerMsgs=true] - whether to exclude server messages
+ * @returns {Object}
  */
 export function addInfoFromUrl(info, excludeServerMsgs = true)
 {
@@ -776,7 +779,23 @@ export function addInfoFromUrl(info, excludeServerMsgs = true)
 	{
 		if (key.indexOf("__") !== 0 || !excludeServerMsgs)
 		{
-			info[key] = value;
+			// convert value to a different type, whenever possible:
+			if (Number.isFinite(value))
+			{
+				info[key] = parseFloat(value);
+			}
+			else if (value === "true")
+			{
+				info[key] = true;
+			}
+			else if (value === "false")
+			{
+				info[key] = false;
+			}
+			else
+			{
+				info[key] = value;
+			}
 		}
 	});
 
