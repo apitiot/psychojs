@@ -39,6 +39,19 @@ export class Scheduler
 	static _currentScheduler = null;
 
 	/**
+	 * Start skipping the scheduler running the current task,
+	 * i.e. the task which is currently "flip-repeating".
+	 */
+	static skipCurrentScheduler()
+	{
+		if (Scheduler._currentScheduler)
+		{
+			Scheduler._currentScheduler._skipping = true;
+		}
+	}
+
+
+	/**
 	 * @memberof module:util
 	 * @param {module:core.PsychoJS} psychoJS - the PsychoJS instance
 	 */

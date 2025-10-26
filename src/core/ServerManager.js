@@ -839,9 +839,10 @@ export class ServerManager extends PsychObject
 	 * @param {string} key - the data key (e.g. the name of .csv file)
 	 * @param {string} value - the data value (e.g. a string containing the .csv header and records)
 	 * @param {boolean} [sync= false] - whether or not to communicate with the server in a synchronous manner
+	 * @param {Object.<{string, string}>} [labels= {}] - additional key/value pairs passed to the server
 	 * @returns {Promise<ServerManager.UploadDataPromise>} the response
 	 */
-	uploadData(key, value, sync = false)
+	uploadData(key, value, sync = false, labels = {})
 	{
 		// no upload for mirror experiments:
 		const isMirror = this._psychoJS.serverMsg.has("__mirror") ? this._psychoJS.serverMsg.get("__mirror") : false;
@@ -875,6 +876,10 @@ export class ServerManager extends PsychObject
 			const formData = new FormData();
 			formData.append("key", key);
 			formData.append("value", value);
+			for (const k in labels)
+			{
+				formData.append(k, labels[k]);
+			}
 			navigator.sendBeacon(`${this._psychoJS.config.pavlovia.URL}/api/v2/${path}`, formData);
 		}
 		// asynchronously query the pavlovia server:
@@ -885,10 +890,16 @@ export class ServerManager extends PsychObject
 			{
 				try
 				{
+					const data = {key, value};
+					for (const k in labels)
+					{
+						data[k] = labels[k];
+					}
+
 					const postResponse = await this.queryServer(
 						"POST",
 						`experiments/${this._psychoJS.config.gitlab.projectId}/sessions/${this._psychoJS.config.session.token}/results`,
-						{key, value},
+						data,
 						"FORM"
 					);
 					const uploadDataResponse = await postResponse.json();

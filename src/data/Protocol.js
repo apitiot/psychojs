@@ -101,6 +101,7 @@ export class Protocol extends PsychObject
 			coordinates: undefined,
 			firebaseRef: undefined
 		};
+		this._sessionStart = undefined;
 		this._experimentNode = undefined;
 		this._firebase = {
 			firebaseConfig: undefined,
@@ -140,6 +141,23 @@ export class Protocol extends PsychObject
 			else if ("participantId*" in expInfo)
 			{
 				this._participant.participantId = expInfo['participantId*'];
+			}
+		}
+
+		// set sessionStart, if available:
+		if (this._psychoJS.serverMsg.has("__sessionStart"))
+		{
+			this._sessionStart = this._psychoJS.serverMsg.get("__sessionStart");
+		}
+		else
+		{
+			if ("sessionStart" in expInfo)
+			{
+				this._sessionStart = expInfo['sessionStart'];
+			}
+			else if ("sessionStart*" in expInfo)
+			{
+				this._sessionStart = expInfo['sessionStart*'];
 			}
 		}
 
@@ -610,9 +628,9 @@ export class Protocol extends PsychObject
 	{
 		const response = {
 			origin: "Protocol.run",
-			context: `when running experiment: ${this._experimentNode.name} for participant: ${this._participant.participantId} through protocol: ${this._protocolId}`
+			context: `when running experiment: ${this._experimentNode.name} for participant: ${this._participant.participantId} through protocol: ${this._protocolId} for session: ${this._sessionStart}`
 		};
-		this._psychoJS.logger.debug(`running experiment: ${this._experimentNode.name} for participant: ${this._participant.participantId} for protocol: ${this._protocolId}`);
+		this._psychoJS.logger.debug(`running experiment: ${this._experimentNode.name} for participant: ${this._participant.participantId} for protocol: ${this._protocolId} for session: ${this._sessionStart}`);
 
 		// the session must be ready:
 		if (this._status !== Protocol.Status.READY)
@@ -641,7 +659,7 @@ export class Protocol extends PsychObject
 		// prepare the url:
 		let fullUrl = `${this._psychoJS.config.pavlovia.URL}/run/${this._experimentNode.path}/index.html`;
 		// - add the participantId:
-		fullUrl += `?__protocolId=${this._protocol.protocolId}&__participantId=${this._participant.participantId}&participantId=${this._participant.participantId}&participantId*=${this._participant.participantId}`;
+		fullUrl += `?__protocolId=${this._protocol.protocolId}&__participantId=${this._participant.participantId}&participantId=${this._participant.participantId}&participantId*=${this._participant.participantId}&__sessionStart=${this._sessionStart}`;
 		// - add the experiment's variables:
 		for (const variable of this._participant.variables)
 		{
@@ -926,11 +944,6 @@ export class Protocol extends PsychObject
 						};
 					}
 				}
-				// if there is no inner loop, then we skip the current routine:
-				else
-				{
-					this._psychoJS.scheduler._skipping = true;
-				}
 			}
 
 			if (cmd === "SKIP_TRIAL")
@@ -973,11 +986,7 @@ export class Protocol extends PsychObject
 				// if there is no inner loop, then we skip the current routine:
 				else
 				{
-					// TODO replace with Scheduler.skipCurrentScheduler()
-					if (Scheduler._currentScheduler)
-					{
-						Scheduler._currentScheduler._skipping = true;
-					}
+					Scheduler.skipCurrentScheduler();
 				}
 			}
 
@@ -1033,16 +1042,6 @@ export class Protocol extends PsychObject
 
 		if (!this._isMirror)
 		{
-			// [DEBUG]
-			// add a scheduler callback:
-			this._psychoJS.scheduler.setTaskCallback( (action, task) =>
-			{
-				if (action === "START_TASK")
-				{
-					console.log(`%cSTART_TASK ${MonotonicClock.getDateStr()} ${task}`, "color: #AA8800");
-				}
-			});
-
 			// add a addData callback:
 			if (this._psychoJS.experiment)
 			{
@@ -1060,6 +1059,12 @@ export class Protocol extends PsychObject
 			// add a scheduler callback:
 			this._psychoJS.scheduler.setTaskCallback( (action, task) =>
 			{
+				// [DEBUG]
+				if (action === "START_TASK")
+				{
+					console.log(`%cSTART_TASK ${MonotonicClock.getDateStr()} ${task}`, "color: #AA8800");
+				}
+
 				// TODO instead of string, using Symbol.toXXX
 				if (action === "START_SCHEDULER")
 				{
@@ -1070,21 +1075,35 @@ export class Protocol extends PsychObject
 				if (action === "STOP_SCHEDULER")
 				{
 					this.logMessage('{"event": "STOP_SCHEDULER"}');
-
 					// // empty the mirror message:
 					// this.logMirrorMessage("");
-
 					return;
 				}
 
-/* UPDATE: as of 2025-05, Max Sims does not believe it is necessary to log any of the bellow
-				if (action === "START_TASK")
+				if (action === "PAUSE_SCHEDULER")
 				{
-					this.logMessage(`${action} ${task}`);
-					// this.logMirrorMessage(`{"event": "START_TASK", "task":"${task}"}`);
+					this.logMessage('{"event": "PAUSE_SCHEDULER"}');
+					// // empty the mirror message:
+					// this.logMirrorMessage("");
 					return;
 				}
-*/
+
+				if (action === "RESUME_SCHEDULER")
+				{
+					this.logMessage('{"event": "RESUME_SCHEDULER"}');
+					// // empty the mirror message:
+					// this.logMirrorMessage("");
+					return;
+				}
+
+				/* UPDATE: as of 2025-05, Max Sims does not believe it is necessary to log any of the bellow
+								if (action === "START_TASK")
+								{
+									this.logMessage(`${action} ${task}`);
+									// this.logMirrorMessage(`{"event": "START_TASK", "task":"${task}"}`);
+									return;
+								}
+				*/
 				console.log(action, task);
 			});
 

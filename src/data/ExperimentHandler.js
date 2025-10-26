@@ -379,8 +379,19 @@ export class ExperimentHandler extends PsychObject {
 				&& !this._psychoJS._serverMsg.has("__pilotToken")
 			)
 			{
-				return this._psychoJS.serverManager.uploadData(key, csv, sync);
-			} else
+				// if this experiment is part of a protocol, add relevant extra labels:
+				const labels = {};
+				if (this._psychoJS.protocol)
+				{
+					labels['protocolId'] = this._psychoJS.protocol._protocolId;
+					labels['experimentName'] = this._experimentName;
+					labels['participantId'] = this._psychoJS.protocol._participant.participantId;
+					labels['sessionStart'] = this._psychoJS.protocol._sessionStart;
+				}
+
+				return this._psychoJS.serverManager.uploadData(key, csv, sync, labels);
+			}
+			else
 			{
 				util.offerDataForDownload(key, csv, "text/csv");
 			}
@@ -417,9 +428,20 @@ export class ExperimentHandler extends PsychObject {
 				&& !this._psychoJS._serverMsg.has("__pilotToken")
 			)
 			{
+				// if this experiment is part of a protocol, add relevant extra labels:
+				const labels = {};
+				if (this._psychoJS.protocol)
+				{
+					labels['protocolId'] = this._psychoJS.protocol._protocolId;
+					labels['experimentName'] = this._experimentName;
+					labels['participantId'] = this._psychoJS.protocol._participant.participantId;
+					labels['sessionStart'] = this._psychoJS.protocol._sessionStart;
+				}
+
 				const key = "results"; // name of the mongoDB collection
-				return /*await*/ this._psychoJS.serverManager.uploadData(key, JSON.stringify(documents), sync);
-			} else
+				return this._psychoJS.serverManager.uploadData(key, JSON.stringify(documents), sync, labels);
+			}
+			else
 			{
 				util.offerDataForDownload("results.json", JSON.stringify(documents), "application/json");
 			}

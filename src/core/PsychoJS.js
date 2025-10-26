@@ -61,6 +61,11 @@ export class PsychoJS
 		return this._scheduler;
 	}
 
+	get protocol()
+	{
+		return this._protocol;
+	}
+
 	get monotonicClock()
 	{
 		return this._monotonicClock;
