@@ -658,8 +658,8 @@ export class Protocol extends PsychObject
 
 		// prepare the url:
 		let fullUrl = `${this._psychoJS.config.pavlovia.URL}/run/${this._experimentNode.path}/index.html`;
-		// - add the participantId:
-		fullUrl += `?__protocolId=${this._protocol.protocolId}&__participantId=${this._participant.participantId}&participantId=${this._participant.participantId}&participantId*=${this._participant.participantId}&__sessionStart=${this._sessionStart}`;
+		// - add the participantId and sessionStart:
+		fullUrl += `?__protocolId=${this._protocol.protocolId}&__participantId=${this._participant.participantId}&participantId=${this._participant.participantId}&participantId*=${this._participant.participantId}&__sessionStart=${this._sessionStart}&sessionStart=${this._sessionStart}`;
 		// - add the experiment's variables:
 		for (const variable of this._participant.variables)
 		{
@@ -669,7 +669,7 @@ export class Protocol extends PsychObject
 				fullUrl += `&${variable.key}${(variable.required) ? "*" : ""}=${variable.value}`;
 			}
 		}
-		// - add the session:
+		// - add the session token:
 		fullUrl += `&session=${this._psychoJS.config.session.sessionToken}`;
 
 		window.location.href = fullUrl;

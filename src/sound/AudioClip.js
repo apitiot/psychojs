@@ -124,9 +124,10 @@ export class AudioClip extends PsychObject
 	/**
 	 * Upload the audio clip to the pavlovia server.
 	 *
+	 * @param {Boolean} [addTimeStamp = true] - whether to add a timestamp to the audio file saved on the server
 	 * @public
 	 */
-	upload()
+	upload(addTimeStamp = true)
 	{
 		// no uploading for mirror experiments:
 		const isMirror = this._psychoJS.serverMsg.has("__mirror") ? this._psychoJS.serverMsg.get("__mirror") : false;
@@ -151,10 +152,22 @@ export class AudioClip extends PsychObject
 			return this.download(filename);
 		}
 
+		// if this experiment is part of a protocol, add relevant extra labels:
+		const labels = {};
+		if (this._psychoJS.protocol)
+		{
+			labels['protocolId'] = this._psychoJS.protocol._protocolId;
+			labels['experimentName'] = this._psychoJS.experiment._name;
+			labels['participantId'] = this._psychoJS.protocol._participant.participantId;
+			labels['sessionStart'] = this._psychoJS.protocol._sessionStart;
+		}
+
 		// upload the data:
 		return this._psychoJS.serverManager.uploadAudioVideo({
 			mediaBlob: this._data,
-			tag: filename
+			tag: filename,
+			addTimeStamp,
+			labels
 		});
 	}
 

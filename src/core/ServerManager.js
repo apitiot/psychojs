@@ -1000,6 +1000,8 @@ export class ServerManager extends PsychObject
 	 *   wait for the data to be uploaded to the server
 	 * @param {string} [options.dialogMsg="Please wait a few moments while the data is uploading to the server"] -
 	 *   default message informing the participant to wait for the data to be uploaded to the server
+	 * @param {Boolean} [options.addTimeStamp = true] - whether to add a timestamp to the audio file saved on the server
+	 * @param {Object.<{string, string}>} [options.labels= {}] - additional key/value pairs passed to the server
 	 * @returns {Promise<ServerManager.UploadDataPromise>} the response
 	 */
 	async uploadAudioVideo({
@@ -1007,7 +1009,9 @@ export class ServerManager extends PsychObject
 													 tag,
 													 waitForCompletion = false,
 													 showDialog = false,
-													 dialogMsg = "Please wait a few moments while the data is uploading to the server"
+													 dialogMsg = "Please wait a few moments while the data is uploading to the server",
+													 addTimeStamp = true,
+													 labels = {}
 												 })
 	{
 		// no uploading for mirror experiments:
@@ -1057,10 +1061,20 @@ export class ServerManager extends PsychObject
 			}
 			const experimentName = (typeof info.expName !== "undefined") ? info.expName : this.psychoJS.config.experiment.name;
 			const datetime = ((typeof info.date !== "undefined") ? info.date : MonotonicClock.getDateStr());
-			const filename = participant + "_" + experimentName + "_" + datetime + "_" + tag;
+
+			let filename = participant + "_" + experimentName;
+			if (addTimeStamp)
+			{
+				filename += "_" + datetime;
+			}
+			filename += "_" + tag;
 
 			const formData = new FormData();
 			formData.append("media", mediaBlob, filename);
+			for (const k in labels)
+			{
+				formData.append(k, labels[k]);
+			}
 
 			let url = this._psychoJS.config.pavlovia.URL
 				+ "/api/v2/experiments/" + this._psychoJS.config.gitlab.projectId

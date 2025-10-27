@@ -76,9 +76,6 @@ export class ExperimentHandler extends PsychObject {
 		this._addAttribute("extraInfo", extraInfo);
 
 		// process the extra info:
-		this._experimentName = (typeof extraInfo.expName === "string" && extraInfo.expName.length > 0)
-			? extraInfo.expName
-			: this.psychoJS.config.experiment.name;
 		this._participant = (typeof extraInfo.participant === "string" && extraInfo.participant.length > 0)
 			? extraInfo.participant
 			: "PARTICIPANT";
@@ -92,7 +89,7 @@ export class ExperimentHandler extends PsychObject {
 		this._addAttribute(
 			"dataFileName",
 			dataFileName,
-			`${this._participant}_${this._experimentName}_${this._datetime}`
+			`${this._participant}_${this._name}_${this._datetime}`
 		);
 
 		// loop handlers:
@@ -384,7 +381,7 @@ export class ExperimentHandler extends PsychObject {
 				if (this._psychoJS.protocol)
 				{
 					labels['protocolId'] = this._psychoJS.protocol._protocolId;
-					labels['experimentName'] = this._experimentName;
+					labels['experimentName'] = this._name;
 					labels['participantId'] = this._psychoJS.protocol._participant.participantId;
 					labels['sessionStart'] = this._psychoJS.protocol._sessionStart;
 				}
@@ -408,7 +405,7 @@ export class ExperimentHandler extends PsychObject {
 			{
 				const doc = {
 					__projectId,
-					__experimentName: this._experimentName,
+					__experimentName: this._name,
 					__participant: this._participant,
 					__session: this._session,
 					__datetime: this._datetime
@@ -433,7 +430,7 @@ export class ExperimentHandler extends PsychObject {
 				if (this._psychoJS.protocol)
 				{
 					labels['protocolId'] = this._psychoJS.protocol._protocolId;
-					labels['experimentName'] = this._experimentName;
+					labels['experimentName'] = this._name;
 					labels['participantId'] = this._psychoJS.protocol._participant.participantId;
 					labels['sessionStart'] = this._psychoJS.protocol._sessionStart;
 				}

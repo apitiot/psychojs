@@ -392,6 +392,7 @@ export class PsychoJS
 			// setup the experiment handler:
 			this._experiment = new ExperimentHandler({
 				psychoJS: this,
+				name: expName,
 				extraInfo: expInfo,
 				dataFileName
 			});
