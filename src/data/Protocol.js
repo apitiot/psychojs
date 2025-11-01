@@ -1121,7 +1121,7 @@ export class Protocol extends PsychObject
 				{
 					this.logMessage(JSON.stringify({
 						event: "RESPONSE_OPTIONS",
-						responseOptions: ""
+						responseOptions: []
 					}));
 				}
 			});

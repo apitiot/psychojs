@@ -320,8 +320,25 @@ export class TrialHandler extends PsychObject
 		{
 			if (this._trialStimulus in currentTrial)
 			{
+				let type = this._trialType;
+
+				// if trialType is IMAGE_TEXT, we try and guess the type of the stimulus:
+				// we assume that it the stimulus ends with an image extension, then it is an image
+				if (type === "IMAGE_TEXT")
+				{
+					const extension = currentTrial[this._trialStimulus].slice(-4);
+					if (extension === ".png" || extension === ".jpg")
+					{
+						type = "IMAGE";
+					}
+					else
+					{
+						type = "TEXT";
+					}
+				}
+
 				const stimulus = {
-					type: this._trialType,
+					type,
 					stimulus: currentTrial[this._trialStimulus]
 				};
 
