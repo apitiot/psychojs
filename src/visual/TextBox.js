@@ -290,6 +290,17 @@ export class TextBox extends util.mix(VisualStim).with(ColorMixin)
 	 */
 	setFont(font = "Arial", log = false)
 	{
+		// note: since font might be a relative font file path instead of a font name,
+		// then we need to extract the name here, and we assume that font is then formatted as follows:
+		// <sub directory>/<font name>.ttf/.otf/.woff/.woff2/.eot
+		// if the name contains / or .
+		font = font.split("/").pop();
+		const indexOfDot = font.indexOf(".");
+		if (indexOfDot > -1)
+		{
+			font = font.substring(0, indexOfDot);
+		}
+
 		this._setAttribute("font", font, log);
 		if (this._pixi !== undefined)
 		{

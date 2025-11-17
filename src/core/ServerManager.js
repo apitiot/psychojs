@@ -1419,7 +1419,7 @@ export class ServerManager extends PsychObject
 		}
 
 		// start loading fonts:
-		for (const name of fontResources)
+		for (let name of fontResources)
 		{
 			const resource = this._resources.get(name);
 			resource.status = ServerManager.ResourceStatus.DOWNLOADING;
@@ -1428,9 +1428,20 @@ export class ServerManager extends PsychObject
 				resource: name,
 			});
 
-			const pathExtension = resource.path.toLowerCase().split(".").pop();
 			try
 			{
+				// note: since the PsychoPy builder is currently not extracting the name of the font
+				// from the provided font file and, instead, is using the path as name,
+				// then we need to extract the name here, and we assume that the path is formatted as follows:
+				// <sub directory>/<font name>.ttf/.otf/.woff/.woff2/.eot
+				// if the name contains / or .
+				name = name.split("/").pop();
+				const indexOfDot = name.indexOf(".");
+				if (indexOfDot > -1)
+				{
+					name = name.substring(0, indexOfDot);
+				}
+
 				const newFont = await new FontFace(name, `url('${resource.path}')`).load();
 				document.fonts.add(newFont);
 
