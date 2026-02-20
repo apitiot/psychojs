@@ -673,7 +673,7 @@ export class Protocol extends PsychObject
 		fullUrl += `&session=${this._psychoJS.config.session.sessionToken}`;
 
 		window.location.href = fullUrl;
-		// window.open(fullUrl, "_blank");
+		//window.open(fullUrl, "_blank");
 	}
 
 	/**
@@ -848,7 +848,7 @@ export class Protocol extends PsychObject
 			if (cmd === "QUIT")
 			{
 				// check for and save orphaned data
-				if (experiment.isEntryEmpty())
+				if (experiment && experiment.isEntryEmpty())
 				{
 					experiment.nextEntry();
 				}
